@@ -2,7 +2,6 @@
 
 SkillSwap is a premium, community-driven platform where neighbors can exchange skills directly—no money needed. Swap a coding lesson for a yoga session, or a gardening tip for a home-cooked meal.
 
-![SkillSwap Logo](https://via.placeholder.com/800x400?text=SkillSwap+Platform)
 
 ## ✨ Features
 
