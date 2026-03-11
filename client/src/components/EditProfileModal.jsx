@@ -45,7 +45,6 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
             const token = localStorage.getItem('token');
             const config = {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
                     Authorization: `Bearer ${token}`
                 }
             };
@@ -59,8 +58,8 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
                 avatar: res.data
             }));
         } catch (error) {
-            console.error('File upload error:', error);
-            alert('Failed to upload image');
+            console.error('File upload error:', error.response?.data || error.message);
+            alert(`Failed to upload image: ${error.response?.data?.message || 'Server Error'}`);
         }
     };
 
