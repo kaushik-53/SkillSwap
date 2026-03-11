@@ -1,0 +1,43 @@
+
+> client@0.0.0 lint
+> eslint .
+
+
+D:\SkillSwap\client\fix-urls.js
+  19:71   error  Unnecessary escape character: \`  no-useless-escape
+  19:133  error  Unnecessary escape character: \`  no-useless-escape
+
+D:\SkillSwap\client\src\components\AppLayout.jsx
+  1:10  error  'useContext' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SkillSwap\client\src\components\ReviewModal.jsx
+  15:19  error  'reviewedUserId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  31:18  error  'error' is defined but never used                                                               no-unused-vars
+
+D:\SkillSwap\client\src\context\AuthContext.jsx
+  66:26  error    'error' is defined but never used                                                                                   no-unused-vars
+  79:8   warning  React Hook useEffect has a missing dependency: 'setupAutoLogout'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\SkillSwap\client\src\pages\Dashboard.jsx
+   64:26  error  'e' is defined but never used                                                                no-unused-vars
+  115:11  error  'getInitials' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SkillSwap\client\src\pages\Explore.jsx
+   4:16  error  'useNavigate' is defined but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  50:11  error  'getInitials' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SkillSwap\client\src\pages\Login.jsx
+  2:8  error  'axios' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SkillSwap\client\src\pages\MySwaps.jsx
+  40:11  error  'getInitials' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\SkillSwap\client\src\pages\Profile.jsx
+    2:21  error  'useNavigate' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  205:70  error  'error' is defined but never used                                                   no-unused-vars
+
+D:\SkillSwap\client\src\pages\Register.jsx
+  2:8  error  'axios' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+✖ 16 problems (15 errors, 1 warning)
+

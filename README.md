@@ -55,4 +55,10 @@ This project is configured for a split deployment:
 This project is private and for demonstration purposes.
 
 ---
-*Built with ❤️ for the community.*
+
+## 🎨 Changing your URL
+
+If you want a prettier URL (like `skillswap-kaushik.vercel.app`):
+1.  **On Vercel:** Go to **Project Settings > Domains**. You can edit the `.vercel.app` subdomain or add a custom domain (like `.com`).
+2.  **On Render:** Update the `CLIENT_URL` environment variable to match your new frontend URL.
+3.  **On Google Console:** Update the **Authorized JavaScript origins** and **Redirect URIs** to match the new URL.

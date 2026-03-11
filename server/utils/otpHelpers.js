@@ -13,11 +13,17 @@ const generateOtp = () => {
 const sendEmailOtp = async (email, otp) => {
     try {
         const transporter = nodemailer.createTransport({
-            service: 'gmail',
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // true for 465, false for other ports
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS
-            }
+            },
+            tls: {
+                rejectUnauthorized: false
+            },
+            family: 4 // Force IPv4 routing for Render
         });
 
         const mailOptions = {

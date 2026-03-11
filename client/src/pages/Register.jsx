@@ -101,7 +101,7 @@ const Register = () => {
                 navigate('/dashboard');
             } catch (error) {
                 console.error(error);
-                alert("Google Login failed");
+                alert(error.response?.data?.message || "Google Login failed");
             } finally {
                 setIsLoading(false);
             }
