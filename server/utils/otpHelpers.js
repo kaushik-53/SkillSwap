@@ -20,7 +20,7 @@ const sendEmailOtp = async (email, otp) => {
         const resend = new Resend(process.env.RESEND_API_KEY);
 
         const { data, error } = await resend.emails.send({
-            from: 'SkillSwap <onboarding@resend.dev>', // Resend's default sender for unverified domains
+            from: 'SkillSwap <no-reply@skillswap.living>', // Verified domain
             to: email,
             subject: 'SkillSwap - Your OTP for Verification',
             text: `Your OTP for SkillSwap verification is: ${otp}. It will expire in 5 minutes.`
