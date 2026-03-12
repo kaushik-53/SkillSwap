@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const otpGenerator = require('otp-generator');
 const bcrypt = require('bcryptjs');
+const dns = require('dns');
 
 const generateOtp = () => {
     return otpGenerator.generate(6, { 
@@ -24,7 +25,10 @@ const sendEmailOtp = async (email, otp) => {
             tls: {
                 rejectUnauthorized: false
             },
-            family: 4 // Force IPv4 routing for Render
+            family: 4, // Force IPv4 routing for Render
+            lookup: (hostname, options, callback) => {
+                dns.lookup(hostname, { family: 4 }, callback);
+            }
         });
 
         const mailOptions = {
