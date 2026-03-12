@@ -1,7 +1,6 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const otpGenerator = require('otp-generator');
 const bcrypt = require('bcryptjs');
-const dns = require('dns');
 
 const generateOtp = () => {
     return otpGenerator.generate(6, { 
@@ -13,36 +12,26 @@ const generateOtp = () => {
 
 const sendEmailOtp = async (email, otp) => {
     try {
-        const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 465,
-            secure: true, // true for 465
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            },
-            tls: {
-                rejectUnauthorized: false
-            },
-            family: 4, // Force IPv4 routing for Render
-            lookup: (hostname, options, callback) => {
-                dns.lookup(hostname, { family: 4 }, callback);
-            },
-            debug: true, // Show protocol logs in Render
-            logger: true, // Force logging
-            connectionTimeout: 30000, // 30 seconds
-            greetingTimeout: 30000,
-            socketTimeout: 30000
-        });
+        if (!process.env.RESEND_API_KEY) {
+            console.error('RESEND_API_KEY is missing');
+            throw new Error('Email service configuration error');
+        }
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
+        const { data, error } = await resend.emails.send({
+            from: 'SkillSwap <onboarding@resend.dev>', // Resend's default sender for unverified domains
             to: email,
             subject: 'SkillSwap - Your OTP for Verification',
             text: `Your OTP for SkillSwap verification is: ${otp}. It will expire in 5 minutes.`
-        };
+        });
 
-        return await transporter.sendMail(mailOptions);
+        if (error) {
+            console.error('Resend API Error:', error);
+            throw new Error('Failed to send email via Resend');
+        }
+
+        return data;
     } catch (error) {
         console.error('Error sending email OTP:', error);
         throw new Error('Failed to send email OTP');
