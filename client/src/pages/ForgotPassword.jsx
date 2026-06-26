@@ -1,10 +1,15 @@
 import { useState, useContext } from 'react';
-import { Mail, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
+import { Mail, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import AuthContext from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import ConstellationSVG from '../components/ui/ConstellationSVG';
+import Button from '../components/ui/Button';
 
 const ForgotPassword = () => {
     const { forgotPassword } = useContext(AuthContext);
+    const { theme } = useTheme();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -18,62 +23,201 @@ const ForgotPassword = () => {
         setMessage('');
         try {
             const data = await forgotPassword(email);
-            setMessage(data.message);
+            setMessage(data.message || 'OTP reset code sent successfully.');
             // After successful request, redirect to reset-password page after a short delay
             setTimeout(() => {
                 navigate('/reset-password', { state: { email } });
             }, 2000);
         } catch (err) {
-            setError(err.response?.data?.message || 'Something went wrong');
+            setError(err.response?.data?.message || 'Something went wrong. Please try again.');
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen w-full flex bg-white font-sans items-center justify-center p-6">
-            <div className="w-full max-w-md space-y-8">
-                <div className="flex justify-start">
-                    <Link to="/login" className="group flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200">
-                        <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-                        Back to Login
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            background: 'var(--ink)',
+        }}>
+            {/* Left — Constellation branding */}
+            <div
+                className="hidden lg:flex"
+                style={{
+                    width: '50%',
+                    background: 'var(--ink-2)',
+                    borderRight: '1px solid var(--glass-border)',
+                    flexDirection: 'column',
+                    padding: 48,
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Logo */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, zIndex: 2, position: 'relative' }}>
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--ember)" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22" />
+                        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--current)" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22" transform="rotate(180 14 14)" />
+                        <circle cx="11" cy="14" r="1.8" fill="var(--ember)" opacity="0.9" />
+                        <circle cx="17" cy="14" r="1.8" fill="var(--current)" opacity="0.9" />
+                    </svg>
+                    <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, fontSize: 20, color: 'var(--text-hi)', letterSpacing: '-0.02em' }}>
+                        SkillSwap
+                    </span>
+                </div>
+
+                {/* Constellation */}
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                }}>
+                    <ConstellationSVG size="compact" animate={true} />
+                </div>
+
+                {/* Tagline */}
+                <div style={{ position: 'relative', zIndex: 2 }}>
+                    <h2 style={{
+                        fontFamily: 'Cabinet Grotesk, sans-serif',
+                        fontWeight: 900,
+                        fontSize: 36,
+                        letterSpacing: '-0.03em',
+                        color: 'var(--text-hi)',
+                        lineHeight: 1.1,
+                        marginBottom: 12,
+                    }}>
+                        Exchange skills,<br />
+                        <span className="text-gradient-ec">not money.</span>
+                    </h2>
+                    <p style={{ fontSize: 14, color: 'var(--text-mid)', lineHeight: 1.65 }}>
+                        A trust-based community where your knowledge is the currency.
+                    </p>
+                </div>
+            </div>
+
+            {/* Right — Form */}
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '48px 24px',
+                overflowY: 'auto',
+            }}>
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    style={{ width: '100%', maxWidth: 400 }}
+                >
+                    {/* Back link */}
+                    <Link
+                        to="/login"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontSize: 13,
+                            color: 'var(--text-low)',
+                            textDecoration: 'none',
+                            marginBottom: 40,
+                            transition: 'color 0.2s ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--text-mid)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-low)'}
+                    >
+                        <ArrowLeft size={14} /> Back to Login
                     </Link>
-                </div>
 
-                <div className="space-y-2">
-                    <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Forgot Password?</h2>
-                    <p className="text-gray-500 font-medium">Enter your email and we'll send you a 6-digit code to reset your password.</p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-1">
-                        <label className="text-xs font-bold text-gray-900 uppercase tracking-widest ml-1">Email Address</label>
-                        <div className="relative">
-                            <div className="absolute left-4 top-3.5 text-gray-400 pointer-events-none">
-                                <Mail size={20} />
-                            </div>
-                            <input
-                                type="email"
-                                required
-                                placeholder="enter your email"
-                                className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none text-gray-900 placeholder:text-gray-400 font-medium"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
+                    {/* Header */}
+                    <div style={{ marginBottom: 36 }}>
+                        <h1 style={{
+                            fontFamily: 'Cabinet Grotesk, sans-serif',
+                            fontWeight: 800,
+                            fontSize: 32,
+                            letterSpacing: '-0.025em',
+                            color: 'var(--text-hi)',
+                            marginBottom: 8,
+                        }}>
+                            Forgot password?
+                        </h1>
+                        <p style={{ fontSize: 14, color: 'var(--text-mid)', lineHeight: 1.5 }}>
+                            Enter your email and we'll send you a 6-digit code to reset your password.
+                        </p>
                     </div>
 
-                    {message && <div className="p-4 bg-green-50 text-green-700 rounded-xl text-sm font-medium border border-green-100">{message}</div>}
-                    {error && <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm font-medium border border-red-100">{error}</div>}
+                    {/* Alerts */}
+                    {message && (
+                        <div style={{
+                            marginBottom: 20,
+                            padding: '12px 16px',
+                            background: 'rgba(52,211,153,0.10)',
+                            border: '1px solid rgba(52,211,153,0.25)',
+                            borderRadius: 10,
+                            fontSize: 13,
+                            color: theme === 'dark' ? '#A7F3D0' : '#047857',
+                        }}>
+                            {message}
+                        </div>
+                    )}
+                    {error && (
+                        <div style={{
+                            marginBottom: 20,
+                            padding: '12px 16px',
+                            background: 'rgba(248,113,113,0.10)',
+                            border: '1px solid rgba(248,113,113,0.25)',
+                            borderRadius: 10,
+                            fontSize: 13,
+                            color: theme === 'dark' ? '#FCA5A5' : '#B91C1C',
+                        }}>
+                            {error}
+                        </div>
+                    )}
 
-                    <button
-                        type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                    >
-                        {isLoading ? <Loader2 size={20} className="animate-spin" /> : <span>Send Reset Code</span>}
-                    </button>
-                </form>
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div>
+                            <label style={{
+                                display: 'block',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: 'var(--text-mid)',
+                                marginBottom: 8,
+                                letterSpacing: '0.02em',
+                            }}>
+                                Email address
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Mail size={15} style={{
+                                    position: 'absolute', left: 14, top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    color: 'var(--text-low)', pointerEvents: 'none',
+                                }} />
+                                <input
+                                    type="email"
+                                    required
+                                    placeholder="you@example.com"
+                                    className="glass-input"
+                                    style={{ paddingLeft: 40 }}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <Button
+                            variant="ember"
+                            loading={isLoading}
+                            size="lg"
+                            style={{ width: '100%', borderRadius: 12, marginTop: 8 }}
+                            type="submit"
+                        >
+                            Send Reset Code
+                        </Button>
+                    </form>
+                </motion.div>
             </div>
         </div>
     );
