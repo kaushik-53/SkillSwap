@@ -1,190 +1,302 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Code, Music, Gamepad2, MoreHorizontal, Sprout, MapPin, HandHeart, Coins, Rocket } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Code, Music, Gamepad2, MoreHorizontal, MapPin, Pencil, HandHeart } from 'lucide-react';
+import Button from '../components/ui/Button';
+import { useToast } from '../components/ui/Toast';
+
+/* SVG progress path that fills as steps complete */
+const ProgressPath = ({ step, total = 4 }) => {
+    const pct = (step / total) * 100;
+    return (
+        <div style={{ marginBottom: 36 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--text-low)', letterSpacing: '0.1em' }}>
+                    STEP {step} / {total}
+                </span>
+                <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--text-low)' }}>
+                    {Math.round(pct)}%
+                </span>
+            </div>
+            <div style={{ height: 3, background: 'var(--glass-border)', borderRadius: 100, overflow: 'hidden' }}>
+                <motion.div
+                    style={{ height: '100%', background: 'linear-gradient(90deg, var(--ember), var(--current))', borderRadius: 100 }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.5, ease: 'easeInOut' }}
+                />
+            </div>
+        </div>
+    );
+};
+
+const categories = [
+    { id: 'Tech', icon: <Code size={20} />, color: 'var(--current)' },
+    { id: 'Music', icon: <Music size={20} />, color: 'var(--ember)' },
+    { id: 'Fitness', icon: <Gamepad2 size={20} />, color: '#86EFAC' },
+    { id: 'Other', icon: <MoreHorizontal size={20} />, color: '#C4B5FD' },
+];
 
 const AddSkill = () => {
     const navigate = useNavigate();
+    const { show, Toast } = useToast();
+    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         category: 'Tech',
-        type: 'Free Exchange',
-        location: ''
+        type: 'Offer',
+        location: '',
     });
 
-    const categories = [
-        { id: 'Tech', icon: <Code size={20} /> },
-        { id: 'Music', icon: <Music size={20} /> },
-        { id: 'Fitness', icon: <Gamepad2 size={20} /> }, // Using Gamepad2 as a placeholder for a 'fitness/activity' icon since Dumbbell isn't in lucide-react standard set often without extra config, Gamepad/Activity works. Let's use Activity or similar if available, or just Sprout for now if Fitness isn't working perfectly. Let's stick to the mockup names.
-        { id: 'Other', icon: <MoreHorizontal size={20} /> }
-    ];
+    // Compute progress step
+    const step = (() => {
+        if (formData.location || formData.description) return 4;
+        if (formData.type) return 3;
+        if (formData.category) return 2;
+        if (formData.title) return 2;
+        return 1;
+    })();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
         try {
             const token = localStorage.getItem('token');
             const submissionData = {
                 ...formData,
-                type: formData.type === 'Free Exchange' ? 'Exchange' : 'Paid'
+                type: formData.type === 'Offer' ? 'Exchange' : 'Paid',
             };
-            await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills`, submissionData, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            navigate('/dashboard');
-        } catch (error) {
-            alert(error.response?.data?.message || 'Failed to add skill');
+            await axios.post(
+                `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills`,
+                submissionData,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            show('Skill posted to marketplace!', 'success');
+            setTimeout(() => navigate('/dashboard'), 1200);
+        } catch (err) {
+            show(err.response?.data?.message || 'Failed to post skill. Please try again.', 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     return (
-        <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6">
-            <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-sm border border-gray-100">
-
+        <div style={{ minHeight: '100vh', padding: '40px 24px 80px', maxWidth: 720, margin: '0 auto' }}>
+            <Toast />
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="glass"
+                style={{ borderRadius: 'var(--r-2xl)', padding: 'clamp(32px, 6vw, 56px)' }}
+            >
                 {/* Header */}
-                <div className="text-center mb-10">
-                    <h2 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">List a New Skill</h2>
-                    <p className="text-gray-500 font-medium">Share your expertise with the community and start swapping.</p>
+                <div style={{ marginBottom: 36 }}>
+                    <h1 style={{
+                        fontFamily: 'Cabinet Grotesk, sans-serif',
+                        fontWeight: 900,
+                        fontSize: 32,
+                        letterSpacing: '-0.025em',
+                        color: 'var(--text-hi)',
+                        marginBottom: 8,
+                    }}>
+                        List a new skill
+                    </h1>
+                    <p style={{ fontSize: 14, color: 'var(--text-mid)' }}>
+                        Share your expertise and start swapping with your community.
+                    </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
+                <ProgressPath step={step} total={4} />
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
                     {/* Skill Title */}
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-baseline">
-                            <label className="block text-sm font-bold text-gray-700">Skill Title</label>
-                            <span className="text-[11px] text-gray-400 italic">Clear & concise titles work best</span>
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.05em' }}>
+                                SKILL TITLE
+                            </label>
+                            <span style={{ fontSize: 11, color: 'var(--text-low)', fontStyle: 'italic' }}>
+                                Clear &amp; concise titles work best
+                            </span>
                         </div>
-                        <div className="relative">
-                            <Pencil className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                        <div style={{ position: 'relative' }}>
+                            <Pencil size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-low)', pointerEvents: 'none' }} />
                             <input
                                 type="text"
                                 placeholder="e.g. Guitar Lessons, Python Mentoring, Yoga Basics"
-                                className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-gray-900 placeholder:text-gray-400 font-semibold transition-all"
+                                className="glass-input"
+                                style={{ paddingLeft: 40 }}
                                 value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                onChange={e => setFormData({ ...formData, title: e.target.value })}
                                 required
                             />
                         </div>
                     </div>
 
                     {/* Category */}
-                    <div className="space-y-3">
-                        <label className="block text-sm font-bold text-gray-700">Category</label>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {categories.map((cat) => (
-                                <button
-                                    key={cat.id}
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, category: cat.id })}
-                                    className={`flex flex-col items-center justify-center py-4 rounded-2xl border transition-all gap-2
-                                        ${formData.category === cat.id
-                                            ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                            : 'bg-white border-gray-100 text-gray-600 hover:border-gray-200 hover:bg-gray-50'
-                                        }`}
-                                >
-                                    {cat.icon}
-                                    <span className="text-xs font-bold">{cat.id}</span>
-                                </button>
-                            ))}
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.05em', display: 'block', marginBottom: 12 }}>
+                            CATEGORY
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
+                            {categories.map(cat => {
+                                const active = formData.category === cat.id;
+                                return (
+                                    <button
+                                        key={cat.id}
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, category: cat.id })}
+                                        style={{
+                                            padding: '16px 12px',
+                                            borderRadius: 14,
+                                            border: active ? `1.5px solid ${cat.color}` : '1px solid var(--glass-border)',
+                                            background: active ? `${cat.color}18` : 'var(--glass)',
+                                            color: active ? cat.color : 'var(--text-mid)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            transition: 'all 0.2s ease',
+                                            backdropFilter: 'blur(8px)',
+                                        }}
+                                    >
+                                        {cat.icon}
+                                        <span style={{ fontSize: 12, fontWeight: 700 }}>{cat.id}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
 
                     {/* Description */}
-                    <div className="space-y-3">
-                        <label className="block text-sm font-bold text-gray-700">Description</label>
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.05em', display: 'block', marginBottom: 8 }}>
+                            DESCRIPTION
+                        </label>
                         <textarea
-                            placeholder="Describe what you can offer and how you like to teach..."
-                            className="w-full px-5 py-4 bg-gray-50/50 border border-gray-100 rounded-2xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-gray-900 placeholder:text-gray-400 font-semibold transition-all resize-none"
-                            rows="5"
+                            placeholder="Describe what you can offer and how you like to teach or learn..."
+                            className="glass-input"
+                            rows={5}
+                            style={{ resize: 'none', lineHeight: 1.65, padding: '14px 16px' }}
                             value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            onChange={e => setFormData({ ...formData, description: e.target.value })}
                             required
-                        ></textarea>
+                        />
                     </div>
 
-                    {/* Swap Type */}
-                    <div className="space-y-3">
-                        <label className="block text-sm font-bold text-gray-700">Swap Type</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Free Exchange */}
+                    {/* Skill Type — Offer vs Want */}
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.05em', display: 'block', marginBottom: 12 }}>
+                            TYPE
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            {/* Offer — ember */}
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, type: 'Free Exchange' })}
-                                className={`flex items-center p-5 rounded-2xl border transition-all text-left gap-4
-                                    ${formData.type === 'Free Exchange'
-                                        ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                        : 'bg-white border-gray-100 text-gray-700 hover:border-gray-200 hover:bg-gray-50'
-                                    }`}
+                                onClick={() => setFormData({ ...formData, type: 'Offer' })}
+                                style={{
+                                    padding: '18px 16px',
+                                    borderRadius: 14,
+                                    border: formData.type === 'Offer' ? '1.5px solid var(--ember)' : '1px solid var(--glass-border)',
+                                    background: formData.type === 'Offer' ? 'var(--ember-dim)' : 'var(--glass)',
+                                    color: formData.type === 'Offer' ? 'var(--ember)' : 'var(--text-mid)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    textAlign: 'left',
+                                    transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                }}
                             >
-                                <div className={`p-2.5 rounded-full ${formData.type === 'Free Exchange' ? 'bg-white/20' : 'bg-green-50 text-green-600'}`}>
-                                    <HandHeart size={20} />
-                                </div>
+                                <HandHeart size={20} />
                                 <div>
-                                    <span className={`block font-bold mb-0.5 ${formData.type === 'Free Exchange' ? 'text-white' : 'text-gray-900'}`}>Free Exchange</span>
-                                    <span className={`block text-xs font-semibold ${formData.type === 'Free Exchange' ? 'text-blue-100' : 'text-gray-500'}`}>Knowledge for knowledge</span>
+                                    <div style={{ fontWeight: 700, fontSize: 14 }}>Offer</div>
+                                    <div style={{ fontSize: 11, opacity: 0.7 }}>I can teach this</div>
                                 </div>
                             </button>
 
-                            {/* Paid Skill */}
+                            {/* Want — current */}
                             <button
                                 type="button"
-                                onClick={() => setFormData({ ...formData, type: 'Paid Skill' })}
-                                className={`flex items-center p-5 rounded-2xl border transition-all text-left gap-4
-                                    ${formData.type === 'Paid Skill'
-                                        ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20'
-                                        : 'bg-white border-gray-100 text-gray-700 hover:border-gray-200 hover:bg-gray-50'
-                                    }`}
+                                onClick={() => setFormData({ ...formData, type: 'Want' })}
+                                style={{
+                                    padding: '18px 16px',
+                                    borderRadius: 14,
+                                    border: formData.type === 'Want' ? '1.5px solid var(--current)' : '1px solid var(--glass-border)',
+                                    background: formData.type === 'Want' ? 'var(--current-dim)' : 'var(--glass)',
+                                    color: formData.type === 'Want' ? 'var(--current)' : 'var(--text-mid)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    textAlign: 'left',
+                                    transition: 'all 0.2s ease',
+                                    backdropFilter: 'blur(8px)',
+                                }}
                             >
-                                <div className={`p-2.5 rounded-full ${formData.type === 'Paid Skill' ? 'bg-white/20' : 'bg-blue-50 text-blue-600'}`}>
-                                    <Coins size={20} />
-                                </div>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M12 8v4l3 3" />
+                                </svg>
                                 <div>
-                                    <span className={`block font-bold mb-0.5 ${formData.type === 'Paid Skill' ? 'text-white' : 'text-gray-900'}`}>Paid Skill</span>
-                                    <span className={`block text-xs font-semibold ${formData.type === 'Paid Skill' ? 'text-blue-100' : 'text-gray-500'}`}>Charge a small fee</span>
+                                    <div style={{ fontWeight: 700, fontSize: 14 }}>Want</div>
+                                    <div style={{ fontSize: 11, opacity: 0.7 }}>I want to learn this</div>
                                 </div>
                             </button>
                         </div>
                     </div>
 
                     {/* Location */}
-                    <div className="space-y-3">
-                        <label className="block text-sm font-bold text-gray-700">Location (Optional)</label>
-                        <div className="relative">
-                            <MapPin className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                    <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.05em', display: 'block', marginBottom: 8 }}>
+                            LOCATION <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional)</span>
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                            <MapPin size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-low)', pointerEvents: 'none' }} />
                             <input
                                 type="text"
                                 placeholder="Leave empty to use your profile location"
-                                className="w-full pl-12 pr-4 py-3.5 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-gray-900 placeholder:text-gray-400 font-semibold transition-all"
+                                className="glass-input"
+                                style={{ paddingLeft: 40 }}
                                 value={formData.location}
-                                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                onChange={e => setFormData({ ...formData, location: e.target.value })}
                             />
                         </div>
-                        <p className="text-[11px] text-gray-400 font-medium ml-1">Setting a specific location helps locals find you faster.</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-low)', marginTop: 6 }}>
+                            Setting a specific location helps locals find you faster.
+                        </p>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="pt-6 space-y-3">
-                        <button
+                    {/* Actions */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
+                        <Button
+                            variant="ember"
+                            loading={isLoading}
+                            size="lg"
                             type="submit"
-                            className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 flex items-center justify-center gap-2"
+                            style={{ width: '100%', borderRadius: 14 }}
                         >
-                            Post Skill to Marketplace
-                            <Rocket size={18} />
-                        </button>
+                            Post skill to marketplace
+                        </Button>
                         <button
                             type="button"
                             onClick={() => navigate('/dashboard')}
-                            className="w-full py-4 bg-white text-gray-600 font-bold border border-gray-200 rounded-2xl hover:bg-gray-50 hover:border-gray-300 transition-all"
+                            className="btn-ghost"
+                            style={{ width: '100%', padding: '14px', borderRadius: 14, fontSize: 14, fontWeight: 600 }}
                         >
                             Cancel
                         </button>
                     </div>
                 </form>
-            </div>
+            </motion.div>
         </div>
     );
 };
 
 export default AddSkill;
-

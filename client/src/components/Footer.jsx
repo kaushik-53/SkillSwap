@@ -1,52 +1,164 @@
 import { Link } from 'react-router-dom';
-import { MapPin, Mail, Globe, Facebook, Twitter, Instagram, Linkedin, Heart } from 'lucide-react';
+import { Twitter, Instagram, Linkedin } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+
+/* Seal Logo (reuse same SVG as Navbar) */
+const SealLogo = () => (
+    <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--ember)" strokeWidth="2"
+            strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22" />
+        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--current)" strokeWidth="2"
+            strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22"
+            transform="rotate(180 14 14)" />
+        <circle cx="11" cy="14" r="1.6" fill="var(--ember)" opacity="0.9" />
+        <circle cx="17" cy="14" r="1.6" fill="var(--current)" opacity="0.9" />
+    </svg>
+);
 
 const Footer = () => {
-    const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    const { theme } = useTheme();
+    const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    const links = [
+        { label: 'Explore', href: '/explore' },
+        { label: 'About', href: '/about' },
+        { label: 'Safety', href: '/safety' },
+        { label: 'Terms', href: '/terms' },
+        { label: 'Privacy', href: '/privacy' },
+    ];
+
+    const socials = [
+        { icon: <Twitter size={16} />, href: '#', label: 'Twitter' },
+        { icon: <Instagram size={16} />, href: '#', label: 'Instagram' },
+        { icon: <Linkedin size={16} />, href: '#', label: 'LinkedIn' },
+    ];
 
     return (
-        <footer className="bg-white pt-12 pb-8 border-t border-gray-100">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
+        <footer
+            style={{
+                borderTop: '1px solid var(--glass-border)',
+                background: theme === 'dark' ? 'rgba(17,22,43,0.80)' : 'rgba(244,245,251,0.90)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                padding: '40px 0 24px',
+                position: 'relative',
+                zIndex: 10,
+            }}
+        >
+            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+                <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 24,
+                    marginBottom: 32,
+                }}>
                     {/* Brand */}
-                    <div className="text-center md:text-left">
-                        <Link to="/" onClick={scrollToTop} className="inline-flex items-center gap-2 group mb-2">
-                            <MapPin size={24} className="text-blue-600" />
-                            <span className="text-xl font-bold text-gray-900">SkillSwap</span>
+                    <div>
+                        <Link
+                            to="/"
+                            onClick={scrollToTop}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                textDecoration: 'none',
+                                marginBottom: 8,
+                            }}
+                        >
+                            <SealLogo />
+                            <span style={{
+                                fontFamily: 'Cabinet Grotesk, sans-serif',
+                                fontWeight: 800,
+                                fontSize: 18,
+                                color: 'var(--text-hi)',
+                                letterSpacing: '-0.02em',
+                            }}>
+                                SkillSwap
+                            </span>
                         </Link>
-                        <p className="text-gray-500 text-sm max-w-xs mx-auto md:mx-0">
-                            Connecting communities across India to share skills and grow together.
+                        <p style={{
+                            fontSize: 13,
+                            color: 'var(--text-low)',
+                            fontStyle: 'italic',
+                            marginTop: 4,
+                        }}>
+                            Exchange skills, not money.
                         </p>
                     </div>
 
                     {/* Quick Links */}
-                    <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-600">
-                        <Link to="/explore" className="hover:text-blue-600 transition-colors">Explore Skills</Link>
-                        <Link to="/about" className="hover:text-blue-600 transition-colors">About</Link>
-                        <Link to="/safety" className="hover:text-blue-600 transition-colors">Safety</Link>
-                        <Link to="/terms" className="hover:text-blue-600 transition-colors">Terms</Link>
-                        <Link to="/privacy" className="hover:text-blue-600 transition-colors">Privacy</Link>
-                    </div>
+                    <nav style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 24px' }}>
+                        {links.map(l => (
+                            <Link
+                                key={l.label}
+                                to={l.href}
+                                style={{
+                                    fontSize: 13,
+                                    fontWeight: 500,
+                                    color: 'var(--text-low)',
+                                    textDecoration: 'none',
+                                    transition: 'color 0.2s ease',
+                                }}
+                                onMouseEnter={e => e.target.style.color = 'var(--text-hi)'}
+                                onMouseLeave={e => e.target.style.color = 'var(--text-low)'}
+                            >
+                                {l.label}
+                            </Link>
+                        ))}
+                    </nav>
 
                     {/* Socials */}
-                    <div className="flex gap-4">
-                        <a href="#" className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all"><Twitter size={18} /></a>
-                        <a href="#" className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-pink-600 hover:bg-pink-50 transition-all"><Instagram size={18} /></a>
-                        <a href="#" className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-blue-700 hover:bg-blue-50 transition-all"><Linkedin size={18} /></a>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        {socials.map(s => (
+                            <a
+                                key={s.label}
+                                href={s.href}
+                                aria-label={s.label}
+                                style={{
+                                    width: 34,
+                                    height: 34,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'var(--glass)',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: 8,
+                                    color: 'var(--text-low)',
+                                    transition: 'all 0.2s ease',
+                                }}
+                                onMouseEnter={e => {
+                                    e.currentTarget.style.color = 'var(--current)';
+                                    e.currentTarget.style.borderColor = 'var(--current)';
+                                }}
+                                onMouseLeave={e => {
+                                    e.currentTarget.style.color = 'var(--text-low)';
+                                    e.currentTarget.style.borderColor = 'var(--glass-border)';
+                                }}
+                            >
+                                {s.icon}
+                            </a>
+                        ))}
                     </div>
                 </div>
 
-                <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
-                    <p>
-                        © {new Date().getFullYear()} SkillSwap. All rights reserved.
+                {/* Bottom bar */}
+                <div style={{
+                    borderTop: '1px solid var(--glass-border)',
+                    paddingTop: 20,
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
+                        © {new Date().getFullYear()} SkillSwap
                     </p>
-                    <div className="flex items-center gap-6 font-medium text-gray-500">
-                        <span className="flex items-center gap-1.5"><Heart size={12} className="text-red-500 fill-red-500" /> Made in India</span>
-                        <span className="flex items-center gap-1.5"><Globe size={12} /> English (IN)</span>
-                        <span className="flex items-center gap-1.5">₹ INR</span>
-                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-low)' }}>
+                        Built with trust, not transactions.
+                    </p>
                 </div>
             </div>
         </footer>

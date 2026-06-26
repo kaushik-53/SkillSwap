@@ -1,12 +1,397 @@
+/* ============================================================
+   SKILLSWAP — Global Design System
+   "The ledger of trust" — dark, glassmorphic, ember × current
+   ============================================================ */
+
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+/* ── Design Tokens — Dark (default) ────────────────────────── */
+:root,
+[data-theme="dark"] {
+  /* Backgrounds */
+  --ink:         #0A0E1F;
+  --ink-2:       #11162B;
+  --ink-3:       #181E35;
+
+  /* Glass */
+  --glass:       rgba(255, 255, 255, 0.06);
+  --glass-hover: rgba(255, 255, 255, 0.10);
+  --glass-border:rgba(255, 255, 255, 0.12);
+
+  /* Accent — maps to Offer/Want data */
+  --ember:       #FF8A5B;   /* offer/teach */
+  --ember-dim:   rgba(255, 138, 91, 0.15);
+  --ember-glow:  rgba(255, 138, 91, 0.35);
+  --current:     #5EEAD4;   /* want/learn  */
+  --current-dim: rgba(94, 234, 212, 0.12);
+  --current-glow:rgba(94, 234, 212, 0.30);
+
+  /* Text */
+  --text-hi:  #F5F6FA;
+  --text-mid: #B7BDD0;
+  --text-low: #6E7388;
+
+  /* Status */
+  --status-pending:   #64748B;
+  --status-accepted:  #5EEAD4;
+  --status-completed: linear-gradient(90deg, #FF8A5B, #5EEAD4);
+  --status-finalized: #818CF8;
+  --status-rejected:  #7F4F4F;
+
+  /* Radius */
+  --r-sm:  12px;
+  --r-md:  18px;
+  --r-lg:  24px;
+  --r-xl:  32px;
+  --r-2xl: 40px;
+
+  /* Shadow */
+  --shadow-glass: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+  --shadow-ember: 0 0 24px rgba(255,138,91,0.3);
+  --shadow-current:0 0 24px rgba(94,234,212,0.25);
+
+  /* Input */
+  --input-bg:     rgba(255,255,255,0.05);
+  --input-bg-focus: rgba(255,255,255,0.08);
+
+  /* Skeleton */
+  --skeleton-a: rgba(255,255,255,0.04);
+  --skeleton-b: rgba(255,255,255,0.10);
+
+  /* Glass primitives */
+  --glass-gradient: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  --glass-sm-gradient: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
+  --glass-sm-shadow: 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* ── Design Tokens — Light ──────────────────────────────────── */
+[data-theme="light"] {
+  /* Backgrounds */
+  --ink:         #F4F5FB;
+  --ink-2:       #EAECF5;
+  --ink-3:       #DFE2F0;
+
+  /* Glass */
+  --glass:       rgba(255, 255, 255, 0.72);
+  --glass-hover: rgba(255, 255, 255, 0.90);
+  --glass-border:rgba(15, 23, 42, 0.10);
+
+  /* Accents stay vivid */
+  --ember:       #F47340;
+  --ember-dim:   rgba(244, 115, 64, 0.12);
+  --ember-glow:  rgba(244, 115, 64, 0.28);
+  --current:     #0D9488;
+  --current-dim: rgba(13, 148, 136, 0.10);
+  --current-glow:rgba(13, 148, 136, 0.22);
+
+  /* Text */
+  --text-hi:  #0F172A;
+  --text-mid: #334155;
+  --text-low: #64748B;
+
+  /* Status */
+  --status-pending:   #94A3B8;
+  --status-accepted:  #0D9488;
+  --status-completed: linear-gradient(90deg, #F47340, #0D9488);
+  --status-finalized: #6366F1;
+  --status-rejected:  #B91C1C;
+
+  /* Radius — same */
+  --r-sm:  12px;
+  --r-md:  18px;
+  --r-lg:  24px;
+  --r-xl:  32px;
+  --r-2xl: 40px;
+
+  /* Shadow — lighter, blue-tinted */
+  --shadow-glass: 0 4px 24px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.80);
+  --shadow-ember: 0 0 20px rgba(244,115,64,0.22);
+  --shadow-current:0 0 20px rgba(13,148,136,0.18);
+
+  /* Input */
+  --input-bg:      rgba(255,255,255,0.80);
+  --input-bg-focus: rgba(255,255,255,1);
+
+  /* Skeleton */
+  --skeleton-a: rgba(15,23,42,0.04);
+  --skeleton-b: rgba(15,23,42,0.09);
+
+  /* Glass primitives */
+  --glass-gradient: linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,255,255,0.60));
+  --glass-sm-gradient: linear-gradient(135deg, rgba(255,255,255,0.80), rgba(255,255,255,0.55));
+  --glass-sm-shadow: 0 2px 12px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.90);
+}
+
+
+/* ── TailwindCSS v4 @theme ──────────────────────────────────── */
+@theme {
+  --color-ink:      var(--ink);
+  --color-ink-2:    var(--ink-2);
+  --color-ink-3:    var(--ink-3);
+  --color-ember:    var(--ember);
+  --color-current:  var(--current);
+  --color-text-hi:  var(--text-hi);
+  --color-text-mid: var(--text-mid);
+  --color-text-low: var(--text-low);
+
+  --font-display: 'Cabinet Grotesk', sans-serif;
+  --font-body:    'Inter', sans-serif;
+  --font-mono:    'Space Mono', monospace;
+}
+
+/* ── Base Reset ─────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Smooth theme switch */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
 
 body {
   font-family: 'Inter', sans-serif;
+  background-color: var(--ink);
+  color: var(--text-hi);
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Hide default password toggle in Edge/IE */
+/* Grain overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+/* ── Glass Primitive ─────────────────────────────────────────── */
+.glass {
+  background: var(--glass-gradient);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-glass);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.glass:hover {
+  background: var(--glass-hover);
+  border-color: var(--glass-border);
+  filter: brightness(1.04);
+}
+
+.glass-sm {
+  background: var(--glass-sm-gradient);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-md);
+  box-shadow: var(--glass-sm-shadow);
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+.font-display { font-family: 'Cabinet Grotesk', sans-serif; }
+.font-mono    { font-family: 'Space Mono', monospace; }
+
+/* ── Ambient Background Blobs ────────────────────────────────── */
+.ambient-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: blob-drift var(--drift-dur, 30s) ease-in-out infinite alternate;
+}
+
+@keyframes blob-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(var(--dx1, 30px), var(--dy1, -20px)) scale(1.05); }
+  66%  { transform: translate(var(--dx2, -20px), var(--dy2, 30px)) scale(0.98); }
+  100% { transform: translate(var(--dx3, 10px), var(--dy3, -10px)) scale(1.02); }
+}
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.6); }
+}
+
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes count-up-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes paper-plane {
+  0%   { transform: translate(0,0) rotate(0deg);    opacity: 1; }
+  60%  { transform: translate(40px,-20px) rotate(20deg); opacity: 0.6; }
+  100% { transform: translate(80px,-40px) rotate(40deg); opacity: 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px var(--ember-glow); }
+  50%       { box-shadow: 0 0 32px var(--ember-glow), 0 0 60px var(--ember-glow); }
+}
+
+@keyframes seal-draw {
+  from { stroke-dashoffset: 320; opacity: 0.3; }
+  to   { stroke-dashoffset: 0;   opacity: 1; }
+}
+
+@keyframes seal-glow-pulse {
+  0%   { filter: drop-shadow(0 0 4px var(--ember))  drop-shadow(0 0 4px var(--current)); }
+  50%  { filter: drop-shadow(0 0 16px var(--ember)) drop-shadow(0 0 16px var(--current)); }
+  100% { filter: drop-shadow(0 0 6px var(--ember))  drop-shadow(0 0 6px var(--current)); }
+}
+
+@keyframes constellation-draw {
+  from { stroke-dashoffset: 300; opacity: 0; }
+  to   { stroke-dashoffset: 0;   opacity: 1; }
+}
+
+@keyframes node-pulse {
+  0%, 100% { r: 4; opacity: 0.7; }
+  50%       { r: 5.5; opacity: 1; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+
+@keyframes spin-dual {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Utility Classes ─────────────────────────────────────────── */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.text-gradient-ec {
+  background: linear-gradient(90deg, var(--ember), var(--current));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-ember {
+  background: var(--ember);
+  color: #0A0E1F;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px var(--ember-glow);
+}
+.btn-ember:hover  { filter: brightness(1.1); box-shadow: 0 6px 24px var(--ember-glow); transform: translateY(-1px); }
+.btn-ember:active { transform: translateY(0); }
+.btn-ember:focus-visible { outline: 2px solid var(--ember); outline-offset: 3px; }
+
+.btn-current {
+  background: var(--current);
+  color: #0A0E1F;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px var(--current-glow);
+}
+.btn-current:hover  { filter: brightness(1.1); box-shadow: 0 6px 24px var(--current-glow); transform: translateY(-1px); }
+.btn-current:focus-visible { outline: 2px solid var(--current); outline-offset: 3px; }
+
+.btn-ghost {
+  background: var(--glass);
+  color: var(--text-hi);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+.btn-ghost:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.22); }
+.btn-ghost:focus-visible { outline: 2px solid var(--text-mid); outline-offset: 3px; }
+
+/* ── Input System ────────────────────────────────────────────── */
+.glass-input {
+  background: var(--input-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  color: var(--text-hi);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  width: 100%;
+  padding: 12px 16px;
+}
+.glass-input::placeholder {
+  color: var(--text-low);
+}
+.glass-input:focus {
+  outline: none;
+  border-color: var(--current);
+  background: var(--input-bg-focus);
+  box-shadow: 0 0 0 3px var(--current-dim);
+}
+
+/* ── Skeleton Shimmer ────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--skeleton-a) 0%,
+    var(--skeleton-b) 40%,
+    var(--skeleton-a) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease infinite;
+  border-radius: var(--r-md);
+}
+
+/* ── Hide password toggle (Edge/IE) ─────────────────────────── */
 input::-ms-reveal,
 input::-ms-clear {
   display: none;
+}
+
+/* ── Reduced-motion overrides ────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ambient-blob { animation: none !important; }
+  .skeleton     { animation: none !important; }
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

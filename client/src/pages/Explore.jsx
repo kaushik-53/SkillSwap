@@ -1,279 +1,355 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, Filter, Star, Clock, MapPin, X, ArrowRight, BookOpen, Music, Camera, Code } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Search, Star, MapPin, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import RequestSwapModal from '../components/RequestSwapModal';
 import { getAvatarUrl } from '../utils/imageHelpers';
+import { SkillCardSkeleton } from '../components/ui/Skeleton';
+import { useToast } from '../components/ui/Toast';
+import GlassCard from '../components/ui/GlassCard';
 
-const CATEGORIES = ['All Local Skills', 'Gardening', 'Coding', 'Music', 'Cooking', 'Other'];
+const CATEGORIES = ['All Skills', 'Gardening', 'Coding', 'Music', 'Cooking', 'Other'];
+
+const CATEGORY_COLORS = {
+    Coding:    { bg: 'rgba(94,234,212,0.12)', border: 'rgba(94,234,212,0.3)', text: 'var(--current)' },
+    Gardening: { bg: 'rgba(134,239,172,0.12)', border: 'rgba(134,239,172,0.3)', text: '#86EFAC' },
+    Music:     { bg: 'rgba(255,138,91,0.12)', border: 'rgba(255,138,91,0.3)', text: 'var(--ember)' },
+    Cooking:   { bg: 'rgba(253,186,116,0.12)', border: 'rgba(253,186,116,0.3)', text: '#FDB674' },
+    Other:     { bg: 'rgba(196,181,253,0.12)', border: 'rgba(196,181,253,0.3)', text: '#C4B5FD' },
+};
+
+/* Empty State */
+const EmptyState = ({ onClear }) => (
+    <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        {/* Single-node incomplete constellation */}
+        <svg width="80" height="80" viewBox="0 0 80 80" style={{ marginBottom: 24, opacity: 0.35 }}>
+            <circle cx="40" cy="40" r="8" fill="var(--current)" opacity="0.8" />
+            <circle cx="40" cy="40" r="14" fill="none" stroke="var(--current)" strokeWidth="1" opacity="0.4" />
+            {/* Incomplete edges going nowhere */}
+            <line x1="40" y1="26" x2="40" y2="14" stroke="var(--current)" strokeWidth="1" opacity="0.2" strokeDasharray="4 4" />
+            <line x1="54" y1="34" x2="66" y2="28" stroke="var(--ember)" strokeWidth="1" opacity="0.2" strokeDasharray="4 4" />
+            <line x1="26" y1="40" x2="14" y2="50" stroke="var(--text-low)" strokeWidth="1" opacity="0.2" strokeDasharray="4 4" />
+        </svg>
+        <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 22, color: 'var(--text-hi)', marginBottom: 8 }}>
+            No skills found
+        </h3>
+        <p style={{ fontSize: 14, color: 'var(--text-mid)', maxWidth: 340, margin: '0 auto 24px', lineHeight: 1.65 }}>
+            No skills matched your filters. Try expanding your search or clearing category.
+        </p>
+        <button
+            onClick={onClear}
+            className="btn-ghost"
+            style={{ padding: '10px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600 }}
+        >
+            Clear filters
+        </button>
+    </div>
+);
 
 const Explore = () => {
     const [skills, setSkills] = useState([]);
     const [search, setSearch] = useState('');
     const [location, setLocation] = useState('');
-    const [activeCategory, setActiveCategory] = useState('All Local Skills');
+    const [activeCategory, setActiveCategory] = useState('All Skills');
     const [loading, setLoading] = useState(true);
-
     const [minRating, setMinRating] = useState('Any');
     const [selectedSkill, setSelectedSkill] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const { show, Toast } = useToast();
 
     useEffect(() => {
-        const fetchSkills = async () => {
+        setLoading(true);
+        const id = setTimeout(async () => {
             try {
-                const { data } = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills?search=${search}&location=${location}`);
+                const { data } = await axios.get(
+                    `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills?search=${search}&location=${location}`
+                );
                 setSkills(data);
-            } catch (error) {
-                console.error(error);
+            } catch (err) {
+                console.error(err);
             } finally {
                 setLoading(false);
             }
-        };
-        const timeoutId = setTimeout(() => {
-            fetchSkills();
         }, 300);
-        return () => clearTimeout(timeoutId);
+        return () => clearTimeout(id);
     }, [search, location]);
 
-    const filteredSkills = skills.filter(skill => {
-        if (activeCategory !== 'All Local Skills' && skill.category !== activeCategory) return false;
+    const clearAll = () => { setSearch(''); setLocation(''); setActiveCategory('All Skills'); setMinRating('Any'); };
 
-        // Dynamic rating filter
-        const skillRating = parseFloat(skill.rating) || 0;
-        if (minRating === '4.5' && skillRating < 4.5) return false;
-        if (minRating === '4.0' && skillRating < 4.0) return false;
-
+    const filtered = skills.filter(skill => {
+        if (activeCategory !== 'All Skills' && skill.category !== activeCategory) return false;
+        const rating = parseFloat(skill.rating) || 0;
+        if (minRating === '4.5' && rating < 4.5) return false;
+        if (minRating === '4.0' && rating < 4.0) return false;
         return true;
     });
 
-    const getInitials = (name) => {
-        return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '??';
-    };
-
-    const getCategoryBg = (category) => {
-        switch (category) {
-            case 'Coding': return 'bg-blue-600';
-            case 'Gardening': return 'bg-green-700';
-            case 'Music': return 'bg-orange-600';
-            case 'Cooking': return 'bg-red-700';
-            default: return 'bg-indigo-600';
-        }
-    };
+    const catColor = (cat) => CATEGORY_COLORS[cat] || CATEGORY_COLORS.Other;
 
     return (
-        <div className="max-w-7xl mx-auto pb-20 pt-10 px-4 sm:px-6 lg:px-8">
-            {/* Header */}
-            <div className="mb-10">
-                <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tight">Explore Skills</h1>
-                <p className="text-gray-600 text-lg font-medium">Find neighbors who can teach you something new, and share what you know.</p>
-            </div>
+        <div style={{ minHeight: '100vh', padding: '24px', maxWidth: 1280, margin: '0 auto' }}>
+            <Toast />
 
-            <div className="flex flex-col lg:flex-row gap-10">
-                {/* Left Sidebar Filters */}
-                <div className="w-full lg:w-72 shrink-0">
-                    <div className="bg-white rounded-[2rem] border border-gray-100 p-8 shadow-sm lg:sticky lg:top-24">
-                        <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-xl font-black text-gray-900">Filters</h2>
+            {/* Header */}
+            <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                style={{ marginBottom: 32 }}
+            >
+                <h1 style={{
+                    fontFamily: 'Cabinet Grotesk, sans-serif',
+                    fontWeight: 900,
+                    fontSize: 'clamp(28px, 4vw, 44px)',
+                    letterSpacing: '-0.025em',
+                    color: 'var(--text-hi)',
+                    marginBottom: 8,
+                }}>
+                    Explore Skills
+                </h1>
+                <p style={{ fontSize: 15, color: 'var(--text-mid)' }}>
+                    Discover people ready to teach and learn in your community.
+                </p>
+            </motion.div>
+
+            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                {/* Sidebar Filters */}
+                <div style={{ width: 260, flexShrink: 0, position: 'sticky', top: 96 }}>
+                    <div className="glass" style={{ padding: 28, borderRadius: 'var(--r-xl)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                            <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 16, color: 'var(--text-hi)' }}>
+                                Filters
+                            </h2>
                             <button
-                                onClick={() => { setSearch(''); setLocation(''); setActiveCategory('All Local Skills'); setMinRating('Any'); }}
-                                className="text-blue-600 text-xs font-bold uppercase tracking-widest hover:underline"
+                                onClick={clearAll}
+                                style={{ fontSize: 11, fontWeight: 700, color: 'var(--ember)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Space Mono, monospace', letterSpacing: '0.08em' }}
                             >
-                                Clear all
+                                CLEAR ALL
                             </button>
                         </div>
 
-                        {/* Search & Location */}
-                        <div className="mb-8 space-y-4 border-b border-gray-100 pb-8">
-                            <div className="relative">
-                                <Search className="absolute left-4 top-3.5 text-gray-400" size={16} />
+                        {/* Search */}
+                        <div style={{ marginBottom: 20 }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-low)', display: 'block', marginBottom: 8, letterSpacing: '0.1em' }}>
+                                SEARCH
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-low)', pointerEvents: 'none' }} />
                                 <input
                                     type="text"
                                     placeholder="Search skills..."
-                                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-sm font-semibold transition-all"
+                                    className="glass-input"
+                                    style={{ paddingLeft: 36, fontSize: 13 }}
                                     value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
+                                    onChange={e => setSearch(e.target.value)}
                                 />
                             </div>
-                            <div className="relative">
-                                <MapPin className="absolute left-4 top-3.5 text-gray-400" size={16} />
+                        </div>
+
+                        {/* Location */}
+                        <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid var(--glass-border)' }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-low)', display: 'block', marginBottom: 8, letterSpacing: '0.1em' }}>
+                                LOCATION
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <MapPin size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-low)', pointerEvents: 'none' }} />
                                 <input
                                     type="text"
-                                    placeholder="Location..."
-                                    className="w-full pl-11 pr-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 text-sm font-semibold transition-all"
+                                    placeholder="City, neighbourhood..."
+                                    className="glass-input"
+                                    style={{ paddingLeft: 36, fontSize: 13 }}
                                     value={location}
-                                    onChange={(e) => setLocation(e.target.value)}
+                                    onChange={e => setLocation(e.target.value)}
                                 />
                             </div>
                         </div>
 
-
-
-                        {/* Minimum Rating */}
-                        <div className="mb-8 border-b border-gray-100 pb-8">
-                            <h3 className="text-sm font-black text-gray-900 mb-5 tracking-tight">Minimum Rating</h3>
-                            <div className="space-y-4">
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center">
-                                        <input type="radio" name="rating" checked={minRating === '4.5'} onChange={() => setMinRating('4.5')} className="peer sr-only" />
-                                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-blue-600 peer-checked:border-[6px] transition-all"></div>
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-700 group-hover:text-gray-900 transition-colors flex items-center gap-1.5">4.5+ <Star size={14} className="fill-yellow-400 text-yellow-400" /></span>
-                                </label>
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center">
-                                        <input type="radio" name="rating" checked={minRating === '4.0'} onChange={() => setMinRating('4.0')} className="peer sr-only" />
-                                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-blue-600 peer-checked:border-[6px] transition-all"></div>
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-700 group-hover:text-gray-900 transition-colors flex items-center gap-1.5">4.0+ <Star size={14} className="fill-yellow-400 text-yellow-400" /></span>
-                                </label>
-                                <label className="flex items-center gap-3 cursor-pointer group">
-                                    <div className="relative flex items-center justify-center">
-                                        <input type="radio" name="rating" checked={minRating === 'Any'} onChange={() => setMinRating('Any')} className="peer sr-only" />
-                                        <div className="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-blue-600 peer-checked:border-[6px] transition-all"></div>
-                                    </div>
-                                    <span className="text-sm font-bold text-gray-700 group-hover:text-gray-900 transition-colors">Any Rating</span>
-                                </label>
+                        {/* Min Rating */}
+                        <div>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-low)', display: 'block', marginBottom: 12, letterSpacing: '0.1em' }}>
+                                MIN RATING
+                            </label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {['4.5', '4.0', 'Any'].map(r => (
+                                    <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                        <div style={{
+                                            width: 18, height: 18,
+                                            borderRadius: '50%',
+                                            border: `2px solid ${minRating === r ? 'var(--ember)' : 'var(--glass-border)'}`,
+                                            background: minRating === r ? 'var(--ember)' : 'transparent',
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                        }}
+                                            onClick={() => setMinRating(r)}
+                                        >
+                                            {minRating === r && (
+                                                <div style={{ position: 'absolute', inset: 3, borderRadius: '50%', background: 'var(--ink)' }} />
+                                            )}
+                                        </div>
+                                        <span style={{ fontSize: 13, color: minRating === r ? 'var(--text-hi)' : 'var(--text-mid)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+                                            onClick={() => setMinRating(r)}
+                                        >
+                                            {r === 'Any' ? 'Any rating' : <>{r}+ <Star size={12} style={{ color: '#FBBF24', fill: '#FBBF24' }} /></>}
+                                        </span>
+                                    </label>
+                                ))}
                             </div>
                         </div>
-
-
                     </div>
                 </div>
 
-                {/* Right Content */}
-                <div className="flex-1 min-w-0">
-                    {/* Top Pill Navigation */}
-                    <div className="flex overflow-x-auto pb-6 mb-4 gap-3 hide-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-                        {CATEGORIES.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                className={`whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-bold transition-all border ${activeCategory === cat
-                                    ? 'bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/20'
-                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                                    }`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
+                {/* Main Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Category pills */}
+                    <div className="hide-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 20, marginBottom: 8 }}>
+                        {CATEGORIES.map(cat => {
+                            const active = activeCategory === cat;
+                            return (
+                                <button
+                                    key={cat}
+                                    onClick={() => setActiveCategory(cat)}
+                                    style={{
+                                        whiteSpace: 'nowrap',
+                                        padding: '8px 18px',
+                                        borderRadius: 100,
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        border: active ? '1px solid var(--ember)' : '1px solid var(--glass-border)',
+                                        background: active ? 'var(--ember-dim)' : 'var(--glass)',
+                                        color: active ? 'var(--ember)' : 'var(--text-mid)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        backdropFilter: 'blur(8px)',
+                                    }}
+                                >
+                                    {cat}
+                                </button>
+                            );
+                        })}
                     </div>
 
-                    {/* Skill Cards Grid */}
+                    {/* Results count */}
+                    {!loading && (
+                        <p style={{ fontSize: 12, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace', marginBottom: 20 }}>
+                            {filtered.length} skill{filtered.length !== 1 ? 's' : ''} found
+                        </p>
+                    )}
+
+                    {/* Grid */}
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-32">
-                            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-6"></div>
-                            <p className="text-gray-500 font-bold text-lg">Finding great skills near you...</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                            {Array.from({ length: 6 }).map((_, i) => <SkillCardSkeleton key={i} />)}
                         </div>
-                    ) : filteredSkills.length === 0 ? (
-                        <div className="text-center py-32 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm px-6">
-                            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <Search className="text-gray-300" size={40} />
-                            </div>
-                            <h3 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">No skills found</h3>
-                            <p className="text-gray-500 font-medium mb-8 max-w-sm mx-auto">We couldn't find any skills matching your current filters. Try expanding your search area or categories.</p>
-                            <button
-                                onClick={() => { setSearch(''); setLocation(''); setActiveCategory('All Local Skills'); setMinRating('Any'); }}
-                                className="bg-blue-50 text-blue-600 px-8 py-3.5 rounded-xl font-black hover:bg-blue-100 transition-colors"
-                            >
-                                Clear all filters
-                            </button>
+                    ) : filtered.length === 0 ? (
+                        <div className="glass" style={{ borderRadius: 'var(--r-xl)' }}>
+                            <EmptyState onClear={clearAll} />
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {filteredSkills.map(skill => (
-                                <div key={skill._id} className="group flex flex-col h-full bg-white rounded-[1.5rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden relative">
-                                    <Link to={`/user/${skill.owner?._id}`} className="block">
-                                        {/* Top Banner */}
-                                        <div className={`h-36 w-full ${getCategoryBg(skill.category)} relative flex flex-col items-end justify-start p-4 bg-gradient-to-br from-white/10 to-black/20 group-hover:opacity-90 transition-opacity`}>
-                                            <span className="bg-white/95 backdrop-blur-md text-[9px] font-black text-gray-700 px-3 py-1.5 rounded uppercase tracking-widest shadow-sm">
-                                                {skill.category}
-                                            </span>
-                                        </div>
-                                    </Link>
-
-                                    {/* Avatar overlapping banner */}
-                                    <div className="absolute top-[104px] left-6">
-                                        <div className="w-16 h-16 rounded-full border-[3px] border-white bg-white overflow-hidden shadow-md flex items-center justify-center font-bold text-xl text-gray-400">
-                                            <img src={getAvatarUrl(skill.owner?.avatar, skill.owner?.name)} alt={skill.owner?.name} className="w-full h-full object-cover" />
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6 pt-12 flex-1 flex flex-col">
-                                        {/* User Info & Rating */}
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-black text-xl text-gray-900 leading-tight group-hover:text-blue-600 transition-colors">
-                                                {skill.owner?.name || 'Local User'}
-                                            </h3>
-                                            <div className="flex items-center gap-1.5 text-xs font-black text-gray-700 bg-yellow-50 px-2 py-1 rounded-md">
-                                                <Star size={12} className="fill-yellow-500 text-yellow-500" />
-                                                {skill.rating || '0.0'}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                            {filtered.map((skill, i) => {
+                                const cc = catColor(skill.category);
+                                const isOffer = skill.type === 'Offer' || skill.type === 'Exchange' || skill.type === 'Free Exchange';
+                                return (
+                                    <GlassCard
+                                        key={skill._id}
+                                        hoverTilt
+                                        style={{ borderRadius: 'var(--r-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+                                    >
+                                        {/* Banner */}
+                                        <Link to={`/user/${skill.owner?._id}`} style={{ textDecoration: 'none' }}>
+                                            <div style={{
+                                                height: 112,
+                                                background: `linear-gradient(135deg, ${isOffer ? 'rgba(255,138,91,0.25)' : 'rgba(94,234,212,0.20)'}, rgba(10,14,31,0.8))`,
+                                                borderBottom: `1px solid ${isOffer ? 'rgba(255,138,91,0.2)' : 'rgba(94,234,212,0.15)'}`,
+                                                display: 'flex',
+                                                justifyContent: 'flex-end',
+                                                alignItems: 'flex-start',
+                                                padding: 14,
+                                            }}>
+                                                {/* Category tag */}
+                                                <span style={{ padding: '4px 10px', borderRadius: 100, fontSize: 10, fontWeight: 700, background: cc.bg, border: `1px solid ${cc.border}`, color: cc.text, fontFamily: 'Space Mono, monospace', letterSpacing: '0.08em' }}>
+                                                    {skill.category?.toUpperCase()}
+                                                </span>
                                             </div>
-                                        </div>
+                                        </Link>
 
-                                        {/* Skill Title */}
-                                        <h4 className="text-[13px] font-bold text-blue-500 mb-4 line-clamp-1">
-                                            {skill.title}
-                                        </h4>
-
-                                        {/* Description */}
-                                        <p className="text-[13px] text-gray-500 line-clamp-2 leading-relaxed mb-6 flex-1 font-medium">
-                                            {skill.description}
-                                        </p>
-
-                                        {/* Location & Swap Button */}
-                                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
-                                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg">
-                                                <MapPin size={12} className="text-gray-400" />
-                                                <span className="truncate max-w-[100px]">{skill.location || skill.owner?.location || 'Remote'}</span>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedSkill(skill);
-                                                    setIsModalOpen(true);
+                                        {/* Avatar */}
+                                        <div style={{ position: 'relative', marginTop: -28, paddingLeft: 20 }}>
+                                            <img
+                                                src={getAvatarUrl(skill.owner?.avatar, skill.owner?.name)}
+                                                alt={skill.owner?.name}
+                                                style={{
+                                                    width: 52, height: 52,
+                                                    borderRadius: '50%',
+                                                    objectFit: 'cover',
+                                                    border: '3px solid var(--ink-2)',
+                                                    boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
                                                 }}
-                                                className="bg-blue-500 hover:bg-blue-600 text-white text-[13px] font-bold px-6 py-2.5 rounded-xl transition-colors shadow-md shadow-blue-500/20"
-                                            >
-                                                Swap
-                                            </button>
+                                            />
                                         </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
 
-                    {/* Success Toast */}
-                    {showSuccessToast && (
-                        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] bg-gray-900 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
-                            <div className="bg-green-500 p-1 rounded-full">
-                                <CheckCircle size={16} />
-                            </div>
-                            <span className="font-bold text-sm">Request sent successfully!</span>
-                        </div>
-                    )}
+                                        {/* Body */}
+                                        <div style={{ padding: '12px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                                                <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 16, color: 'var(--text-hi)', flex: 1, marginRight: 8 }}>
+                                                    {skill.owner?.name || 'Local User'}
+                                                </h3>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(251,191,36,0.1)', padding: '3px 8px', borderRadius: 6, flexShrink: 0 }}>
+                                                    <Star size={11} style={{ color: '#FBBF24', fill: '#FBBF24' }} />
+                                                    <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--text-hi)', fontWeight: 700 }}>
+                                                        {skill.rating || '0.0'}
+                                                    </span>
+                                                </div>
+                                            </div>
 
-                    <RequestSwapModal
-                        isOpen={isModalOpen}
-                        onClose={() => setIsModalOpen(false)}
-                        skill={selectedSkill}
-                        onSuccess={() => {
-                            setShowSuccessToast(true);
-                            setTimeout(() => setShowSuccessToast(false), 3000);
-                        }}
-                    />
+                                            {/* Skill title with offer/want accent */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                                                <div style={{
+                                                    width: 6, height: 6, borderRadius: '50%',
+                                                    background: isOffer ? 'var(--ember)' : 'var(--current)',
+                                                    flexShrink: 0,
+                                                }} />
+                                                <h4 style={{ fontSize: 13, fontWeight: 600, color: isOffer ? 'var(--ember)' : 'var(--current)', lineClamp: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {skill.title}
+                                                </h4>
+                                            </div>
 
-                    {/* Load More Placeholder */}
-                    {!loading && filteredSkills.length > 0 && (
-                        <div className="mt-10 flex justify-center">
-                            <button className="bg-white border border-gray-200 text-gray-900 font-bold text-sm px-8 py-4 rounded-2xl shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2">
-                                <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                Load More Providers
-                            </button>
+                                            <p style={{ fontSize: 12, color: 'var(--text-mid)', lineHeight: 1.65, marginBottom: 16, flex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                {skill.description}
+                                            </p>
+
+                                            {/* Footer */}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, borderTop: '1px solid var(--glass-border)' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-low)' }}>
+                                                    <MapPin size={11} />
+                                                    <span style={{ fontFamily: 'Space Mono, monospace', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {skill.location || skill.owner?.location || 'Remote'}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => { setSelectedSkill(skill); setIsModalOpen(true); }}
+                                                    className="btn-ember"
+                                                    style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12 }}
+                                                >
+                                                    Swap
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </GlassCard>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
             </div>
+
+            <RequestSwapModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                skill={selectedSkill}
+                onSuccess={() => show('Swap request sent successfully!', 'success')}
+            />
         </div>
     );
 };

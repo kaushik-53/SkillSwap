@@ -1,50 +1,51 @@
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import {
-    MapPin, Star, MessageSquare, Calendar, Clock, CheckCircle,
-    ThumbsUp, Edit, Share2, Repeat, Search, Mail, Phone, Trash2, Target, Pencil
-} from 'lucide-react';
+import { MapPin, Star, MessageSquare, CheckCircle, ThumbsUp, Edit, Repeat, Search, Mail, Phone, Trash2, Target } from 'lucide-react';
+import { motion } from 'framer-motion';
 import EditProfileModal from '../components/EditProfileModal';
 import RequestSwapModal from '../components/RequestSwapModal';
 import AuthContext from '../context/AuthContext';
 import { getAvatarUrl } from '../utils/imageHelpers';
+import GlassCard from '../components/ui/GlassCard';
+import ExchangeSeal from '../components/ui/ExchangeSeal';
+import OtpInput from '../components/ui/OtpInput';
+import { useToast } from '../components/ui/Toast';
+
+const ProfileStat = ({ label, value, accent }) => (
+    <div style={{ textAlign: 'center', padding: '16px 20px' }}>
+        <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 900, fontSize: 28, color: accent || 'var(--text-hi)', lineHeight: 1, marginBottom: 4 }}>
+            {value}
+        </p>
+        <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, color: 'var(--text-low)', letterSpacing: '0.12em' }}>
+            {label}
+        </p>
+    </div>
+);
 
 const Profile = () => {
     const { user: currentUser, updateUserState, deleteAccount, requestDeleteAccount } = useContext(AuthContext);
     const { id } = useParams();
+    const navigate = useNavigate();
     const [profileUser, setProfileUser] = useState(null);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [selectedSkill, setSelectedSkill] = useState(null);
-    const [showSuccessToast, setShowSuccessToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
     const [isDeletingAccount, setIsDeletingAccount] = useState(false);
     const [deleteOtp, setDeleteOtp] = useState('');
     const [showAllReviews, setShowAllReviews] = useState(false);
     const [isDeleteWaiting, setIsDeleteWaiting] = useState(false);
+    const { show, Toast } = useToast();
 
     const handleDeleteSkill = async (skillId) => {
-        if (!window.confirm('Are you sure you want to delete this skill?')) return;
-
         try {
             const token = localStorage.getItem('token');
-            const config = { headers: { Authorization: `Bearer ${token}` } };
-            await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills/${skillId}`, config);
-
-            // Update local state
-            setProfileUser(prev => ({
-                ...prev,
-                skillsOffered: prev.skillsOffered.filter(s => s._id !== skillId)
-            }));
-
-            setToastMessage('Skill deleted successfully!');
-            setShowSuccessToast(true);
-            setTimeout(() => setShowSuccessToast(false), 3000);
+            await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills/${skillId}`, { headers: { Authorization: `Bearer ${token}` } });
+            setProfileUser(prev => ({ ...prev, skillsOffered: prev.skillsOffered.filter(s => s._id !== skillId) }));
+            show('Skill removed.', 'success');
         } catch (error) {
-            console.error('Failed to delete skill:', error);
-            alert('Failed to delete skill');
+            show('Failed to delete skill.', 'error');
         }
     };
 
@@ -53,7 +54,6 @@ const Profile = () => {
             try {
                 const token = localStorage.getItem('token');
                 const config = { headers: { Authorization: `Bearer ${token}` } };
-
                 let targetUser;
                 if (id && id !== currentUser?._id) {
                     const userRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/${id}`, config);
@@ -63,298 +63,259 @@ const Profile = () => {
                     targetUser = currentUser;
                     setIsOwnProfile(true);
                 }
-
                 if (!targetUser) return;
 
-                // Fetch skills for this user
                 const skillsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills`);
                 const userSkills = skillsRes.data.filter(s => s.owner?._id === targetUser._id);
 
-                // Fetch reviews for this user
                 let dynamicallyFetchedReviews = targetUser.reviews || [];
                 let swapsCompleted = targetUser.swapsCompleted || 0;
 
                 try {
                     const reviewRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reviews/user/${targetUser._id}`);
                     dynamicallyFetchedReviews = reviewRes.data || [];
-
-                    // Fetch requests to calculate swapsCompleted accurately
                     const requestRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/requests`, config);
                     const allReqs = [...(requestRes.data.received || []), ...(requestRes.data.sent || [])];
-                    const completedReqs = allReqs.filter(r =>
-                        r.status === 'Completed' &&
-                        (r.sender?._id === targetUser._id || r.receiver?._id === targetUser._id)
-                    ).length;
-
-                    swapsCompleted = completedReqs;
-                } catch (e) { console.error("Could not fetch stats dynamically", e); }
+                    swapsCompleted = allReqs.filter(r => r.status === 'Completed' && (r.sender?._id === targetUser._id || r.receiver?._id === targetUser._id)).length;
+                } catch (e) { /* non-critical */ }
 
                 setProfileUser({
                     ...targetUser,
                     memberSince: new Date(targetUser.createdAt).getFullYear() || new Date().getFullYear(),
-                    responseTime: targetUser.responseTime || 'N/A',
-                    swapsCompleted: swapsCompleted, // Ideally this comes from a backend aggregation later
+                    swapsCompleted,
                     rating: targetUser.rating || 0,
                     reviewsCount: targetUser.reviewsCount || 0,
-                    about: targetUser.bio || "No bio provided yet.",
-                    skillsOffered: userSkills.map(s => ({
-                        _id: s._id,
-                        title: s.title,
-                        level: s.level || 'Beginner',
-                        category: s.category,
-                        description: s.description,
-                        tags: [s.category]
-                    })),
+                    about: targetUser.bio || 'No bio provided yet.',
+                    skillsOffered: userSkills.map(s => ({ _id: s._id, title: s.title, level: s.level || 'Beginner', category: s.category, description: s.description, tags: [s.category] })),
                     skillsWanted: targetUser.skillsWanted || [],
-                    reviews: dynamicallyFetchedReviews
+                    reviews: dynamicallyFetchedReviews,
                 });
-            } catch (error) {
-                console.error("Profile fetch error:", error);
-            }
+            } catch (error) { console.error(error); }
         };
-
         if (currentUser) fetchProfileData();
     }, [id, currentUser]);
 
-    if (!profileUser) return <div className="min-h-screen pt-20 flex justify-center items-center">Loading...</div>;
+    if (!profileUser) return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ExchangeSeal size={80} triggered={false} />
+        </div>
+    );
 
     return (
-        <div className="pb-12">
-            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div style={{ padding: '32px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
+            <Toast />
 
-                {/* Left Column: Profile Card */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-                        {/* Cover / Header color */}
-                        <div className="h-32 bg-blue-50"></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 28, alignItems: 'start', flexWrap: 'wrap' }}>
 
-                        <div className="px-6 pb-8 text-center relative">
+                {/* ── Left Column ────────────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                    {/* Profile card */}
+                    <GlassCard style={{ borderRadius: 'var(--r-2xl)', overflow: 'hidden' }}>
+                        {/* Cover */}
+                        <div style={{
+                            height: 120,
+                            background: 'linear-gradient(135deg, rgba(255,138,91,0.3), rgba(94,234,212,0.25))',
+                            position: 'relative',
+                        }}>
+                            {/* Blobs inside cover */}
+                            <div style={{ position: 'absolute', top: -20, left: -20, width: 100, height: 100, background: 'radial-gradient(circle, var(--ember-dim), transparent)', borderRadius: '50%' }} />
+                            <div style={{ position: 'absolute', bottom: -20, right: 10, width: 80, height: 80, background: 'radial-gradient(circle, var(--current-dim), transparent)', borderRadius: '50%' }} />
+                        </div>
+
+                        <div style={{ padding: '0 28px 32px', textAlign: 'center' }}>
                             {/* Avatar */}
-                            <div className="relative -mt-16 mb-6 inline-block">
+                            <div style={{ position: 'relative', display: 'inline-block', marginTop: -40, marginBottom: 16 }}>
                                 <img
                                     src={getAvatarUrl(profileUser.avatar, profileUser.name)}
                                     alt={profileUser.name}
-                                    className="w-32 h-32 rounded-full border-4 border-white shadow-xl object-cover ring-1 ring-gray-100"
+                                    style={{
+                                        width: 88, height: 88,
+                                        borderRadius: '50%',
+                                        objectFit: 'cover',
+                                        border: '4px solid var(--ink-2)',
+                                        boxShadow: '0 0 24px var(--current-glow)',
+                                    }}
                                 />
                             </div>
 
-                            <div className="mb-8">
-                                <h1 className="text-3xl font-black text-gray-900 flex items-center justify-center gap-2 tracking-tight capitalize">
-                                    {profileUser.name}
-                                </h1>
-                                <div className="flex items-center justify-center gap-1.5 text-gray-400 mt-2 font-bold uppercase tracking-tighter text-[10px]">
-                                    <MapPin size={12} className="text-blue-600" />
-                                    <span>{profileUser.location || 'Brooklyn, NY'}</span>
-                                </div>
+                            <h1 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, fontSize: 22, color: 'var(--text-hi)', textTransform: 'capitalize', marginBottom: 6 }}>
+                                {profileUser.name}
+                            </h1>
 
-                                {/* Login / Register Details */}
-                                {isOwnProfile && (
-                                    <div className="mt-3 flex justify-center gap-2 flex-wrap">
-                                        {profileUser.email && (
-                                            <div className="flex items-center gap-1.5 text-gray-500 text-[11px] font-bold bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                                                <Mail size={12} className="text-gray-400" />
-                                                <span>{profileUser.email}</span>
-                                            </div>
-                                        )}
-                                        {profileUser.phone && (
-                                            <div className="flex items-center gap-1.5 text-gray-500 text-[11px] font-bold bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-                                                <Phone size={12} className="text-gray-400" />
-                                                <span>{profileUser.phone}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div className="mt-4 inline-flex items-center gap-2 bg-gray-50/50 px-4 py-1.5 rounded-full border border-gray-100 shadow-sm">
-                                    {profileUser.reviewsCount > 0 ? (
-                                        <>
-                                            <div className="flex text-yellow-500">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star key={i} size={10} fill={i < Math.floor(profileUser.rating) ? "currentColor" : "none"} className={i < Math.floor(profileUser.rating) ? "" : "text-gray-200"} />
-                                                ))}
-                                            </div>
-                                            <span className="font-black text-gray-900 text-xs ml-1">{profileUser.rating.toFixed(1)}</span>
-                                            <span className="text-gray-400 font-bold text-[10px]">({profileUser.reviewsCount} reviews)</span>
-                                        </>
-                                    ) : (
-                                        <span className="text-gray-400 font-bold text-[10px]">New Member - No ratings yet</span>
-                                    )}
-                                </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--text-low)', fontSize: 12, marginBottom: 12 }}>
+                                <MapPin size={11} />
+                                <span style={{ fontFamily: 'Space Mono, monospace' }}>{profileUser.location || '—'}</span>
                             </div>
 
-                            <div className="space-y-4 px-2">
-                                {isOwnProfile ? (
+                            {isOwnProfile && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+                                    {profileUser.email && (
+                                        <div className="glass-sm" style={{ padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                                            <Mail size={10} style={{ color: 'var(--text-low)' }} />
+                                            <span style={{ color: 'var(--text-mid)', fontFamily: 'Space Mono, monospace' }}>{profileUser.email}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Rating */}
+                            <div className="glass-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 100, marginBottom: 24 }}>
+                                {profileUser.reviewsCount > 0 ? (
                                     <>
-                                        {!isDeletingAccount ? (
-                                            <>
-                                                <button
-                                                    onClick={() => setIsEditModalOpen(true)}
-                                                    className="w-full py-3.5 bg-white border border-gray-100 text-gray-700 font-black rounded-2xl hover:bg-gray-50 transition-all shadow-sm flex items-center justify-center gap-2"
-                                                >
-                                                    <Edit size={18} /> Edit Profile
-                                                </button>
-                                                <button
-                                                    onClick={async () => {
-                                                        if (window.confirm("Are you absolutely sure you want to delete your account? This will permanently erase your profile and all your posted skills. This action cannot be undone.")) {
-                                                            try {
-                                                                await requestDeleteAccount();
-                                                                setIsDeletingAccount(true);
-                                                                setToastMessage('OTP sent to your email.');
-                                                                setShowSuccessToast(true);
-                                                                setTimeout(() => setShowSuccessToast(false), 3000);
-                                                            } catch (error) {
-                                                                alert("Failed to request account deletion. Please try again.");
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="w-full py-3.5 bg-red-50 text-red-600 font-black rounded-2xl hover:bg-red-100 transition-all flex items-center justify-center gap-2 mt-3"
-                                                >
-                                                    <Trash2 size={18} /> Delete Account
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
-                                                <p className="text-red-700 font-bold text-sm mb-3">Enter the 6-digit OTP sent to your email to permanently delete your account.</p>
-                                                <input
-                                                    type="text"
-                                                    disabled={isDeleteWaiting}
-                                                    placeholder="Enter OTP"
-                                                    value={deleteOtp}
-                                                    onChange={(e) => setDeleteOtp(e.target.value)}
-                                                    className="w-full px-4 py-2 border border-red-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
-                                                />
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={async () => {
-                                                            if (!deleteOtp || deleteOtp.length < 6) return alert('Enter a valid 6 digit OTP');
-                                                            setIsDeleteWaiting(true);
-                                                            try {
-                                                                await deleteAccount(deleteOtp);
-                                                            } catch (error) {
-                                                                alert(error?.response?.data?.message || "Invalid OTP or request failed");
-                                                                setIsDeleteWaiting(false);
-                                                            }
-                                                        }}
-                                                        disabled={isDeleteWaiting}
-                                                        className="flex-1 py-2.5 bg-red-600 text-white font-black rounded-xl hover:bg-red-700 transition-all disabled:opacity-50"
-                                                    >
-                                                        {isDeleteWaiting ? 'Deleting...' : 'Confirm'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsDeletingAccount(false);
-                                                            setDeleteOtp('');
-                                                        }}
-                                                        disabled={isDeleteWaiting}
-                                                        className="flex-1 py-2.5 bg-white text-gray-700 font-bold border border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <div style={{ display: 'flex', gap: 2 }}>
+                                            {[...Array(5)].map((_, i) => (
+                                                <Star key={i} size={12} style={{ color: '#FBBF24', fill: i < Math.floor(profileUser.rating) ? '#FBBF24' : 'none' }} />
+                                            ))}
+                                        </div>
+                                        <span style={{ fontFamily: 'Space Mono, monospace', fontWeight: 700, fontSize: 12, color: 'var(--text-hi)' }}>
+                                            {profileUser.rating.toFixed(1)}
+                                        </span>
+                                        <span style={{ fontSize: 11, color: 'var(--text-low)' }}>({profileUser.reviewsCount})</span>
                                     </>
                                 ) : (
-                                    <button className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 flex items-center justify-center gap-2">
-                                        <Repeat size={18} /> Request Swap
-                                    </button>
+                                    <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)', letterSpacing: '0.08em' }}>
+                                        NEW MEMBER
+                                    </span>
                                 )}
+                            </div>
 
-                                {!isOwnProfile && (
-                                    <button className="w-full py-3.5 bg-gray-100 text-gray-500 font-black rounded-2xl hover:bg-gray-200 transition-all flex items-center justify-center gap-2">
-                                        <MessageSquare size={18} />
-                                        Message
-                                    </button>
+                            {/* CTA buttons */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {isOwnProfile ? (
+                                    !isDeletingAccount ? (
+                                        <>
+                                            <button onClick={() => setIsEditModalOpen(true)} className="btn-ghost"
+                                                style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                                <Edit size={16} /> Edit Profile
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!window.confirm('Delete your account permanently? This cannot be undone.')) return;
+                                                    try {
+                                                        await requestDeleteAccount();
+                                                        setIsDeletingAccount(true);
+                                                        show('OTP sent to your email.', 'info');
+                                                    } catch (err) {
+                                                        show('Failed to initiate deletion.', 'error');
+                                                    }
+                                                }}
+                                                style={{ width: '100%', padding: '10px', background: 'rgba(127,40,40,0.15)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, color: '#F87171', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                            >
+                                                <Trash2 size={14} /> Delete Account
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div style={{ padding: '16px', background: 'rgba(127,40,40,0.12)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 14 }}>
+                                            <p style={{ fontSize: 12, color: '#FCA5A5', fontWeight: 600, marginBottom: 14 }}>
+                                                Enter the 6-digit OTP to confirm account deletion.
+                                            </p>
+                                            <OtpInput
+                                                value={deleteOtp}
+                                                onChange={setDeleteOtp}
+                                                length={6}
+                                            />
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (deleteOtp.length < 6) return show('Enter a valid 6-digit OTP.', 'error');
+                                                        setIsDeleteWaiting(true);
+                                                        try { await deleteAccount(deleteOtp); }
+                                                        catch (e) { show(e?.response?.data?.message || 'Invalid OTP.', 'error'); setIsDeleteWaiting(false); }
+                                                    }}
+                                                    disabled={isDeleteWaiting}
+                                                    style={{ flex: 1, padding: '10px', background: '#B91C1C', border: 'none', borderRadius: 10, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                                                >
+                                                    {isDeleteWaiting ? 'Deleting...' : 'Confirm'}
+                                                </button>
+                                                <button onClick={() => { setIsDeletingAccount(false); setDeleteOtp(''); }} disabled={isDeleteWaiting}
+                                                    className="btn-ghost" style={{ flex: 1, padding: '10px', borderRadius: 10, fontSize: 13 }}>
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                ) : (
+                                    <>
+                                        <button className="btn-ember" style={{ width: '100%', padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            <Repeat size={16} /> Request Swap
+                                        </button>
+                                        <button className="btn-ghost" style={{ width: '100%', padding: '11px', borderRadius: 12, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                            <MessageSquare size={16} /> Message
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </GlassCard>
 
-                    {/* Activity Stats */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-50 p-8">
-                        <h3 className="font-black text-gray-900 mb-8 uppercase tracking-widest text-xs">Activity Stats</h3>
-                        <div className="space-y-8">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-                                        <CheckCircle size={22} />
-                                    </div>
-                                    <span className="text-gray-500 font-bold">Swaps Completed</span>
-                                </div>
-                                <span className="font-black text-gray-900 text-lg">{profileUser.swapsCompleted}</span>
+                    {/* Stats */}
+                    <div className="glass" style={{ borderRadius: 'var(--r-xl)', overflow: 'hidden' }}>
+                        <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)', letterSpacing: '0.12em', padding: '20px 24px 0' }}>
+                            ACTIVITY
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--glass-border)', marginTop: 14 }}>
+                            <div style={{ borderRight: '1px solid var(--glass-border)' }}>
+                                <ProfileStat label="SWAPS DONE" value={profileUser.swapsCompleted} accent="var(--ember)" />
                             </div>
-
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-                                        <Calendar size={22} />
-                                    </div>
-                                    <span className="text-gray-500 font-bold">Member Since</span>
-                                </div>
-                                <span className="font-black text-gray-900 text-lg">{profileUser.memberSince}</span>
-                            </div>
+                            <ProfileStat label="MEMBER SINCE" value={profileUser.memberSince} accent="var(--current)" />
                         </div>
                     </div>
                 </div>
 
-                {/* Right Column: Details */}
-                <div className="lg:col-span-2 space-y-8">
+                {/* ── Right Column ───────────────────────────────── */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
 
-                    {/* About Section */}
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">About {profileUser.name?.split(' ')[0]}</h2>
-                        <p className="text-gray-600 leading-relaxed text-lg">
+                    {/* About */}
+                    <GlassCard style={{ padding: 32, borderRadius: 'var(--r-xl)' }}>
+                        <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 20, color: 'var(--text-hi)', marginBottom: 14 }}>
+                            About {profileUser.name?.split(' ')[0]}
+                        </h2>
+                        <p style={{ fontSize: 15, color: 'var(--text-mid)', lineHeight: 1.75 }}>
                             {profileUser.about}
                         </p>
-                    </div>
+                    </GlassCard>
 
                     {/* Skills Grid */}
-                    <div className="grid md:grid-cols-2 gap-8">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                         {/* Skills Offered */}
-                        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 h-full">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                    <ThumbsUp size={24} />
+                        <GlassCard style={{ padding: 28, borderRadius: 'var(--r-lg)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                                <div style={{ width: 36, height: 36, background: 'var(--ember-dim)', border: '1px solid rgba(255,138,91,0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <ThumbsUp size={18} style={{ color: 'var(--ember)' }} />
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-900">Skills I Offer</h2>
+                                <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 17, color: 'var(--text-hi)' }}>
+                                    Skills I Offer
+                                </h2>
                             </div>
 
-                            {profileUser.skillsOffered && profileUser.skillsOffered.length > 0 ? (
-                                <div className="space-y-6">
+                            {profileUser.skillsOffered?.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                                     {profileUser.skillsOffered.map((skill, idx) => (
-                                        <div key={idx} className="space-y-2 group/skill">
-                                            <div className="flex justify-between items-start">
-                                                <h3 className="font-bold text-gray-900 text-lg group-hover/skill:text-blue-600 transition-colors">{skill.title}</h3>
-                                                <div className="flex items-center gap-2">
-                                                    {skill.level && <span className="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">{skill.level}</span>}
+                                        <div key={idx} style={{ paddingBottom: 20, borderBottom: '1px solid var(--glass-border)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                                                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-hi)' }}>{skill.title}</h3>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    {skill.level && (
+                                                        <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: 'var(--ember-dim)', color: 'var(--ember)', fontFamily: 'Space Mono, monospace', letterSpacing: '0.08em' }}>
+                                                            {skill.level.toUpperCase()}
+                                                        </span>
+                                                    )}
                                                     {isOwnProfile && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                handleDeleteSkill(skill._id);
-                                                            }}
-                                                            className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                                                            title="Delete Skill"
-                                                        >
-                                                            <Trash2 size={16} />
+                                                        <button onClick={() => handleDeleteSkill(skill._id)} style={{ background: 'none', border: 'none', color: 'var(--text-low)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
-                                            <p className="text-gray-500 text-sm leading-relaxed mb-4">{skill.description || "Can help with projects and providing guidance."}</p>
-                                            <div className="flex flex-wrap gap-2 pt-1 mb-4">
-                                                {skill.tags && skill.tags.map((tag, tIdx) => (
-                                                    <span key={tIdx} className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-md font-medium">{tag}</span>
-                                                ))}
-                                            </div>
+                                            <p style={{ fontSize: 12, color: 'var(--text-mid)', lineHeight: 1.65, marginBottom: 10 }}>
+                                                {skill.description || 'Can help with projects and guidance.'}
+                                            </p>
                                             {!isOwnProfile && (
                                                 <button
-                                                    onClick={() => {
-                                                        setSelectedSkill({ ...skill, owner: profileUser });
-                                                        setIsSwapModalOpen(true);
-                                                    }}
-                                                    className="w-full py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-600 hover:text-white transition-all border border-blue-100 uppercase tracking-widest"
+                                                    onClick={() => { setSelectedSkill({ ...skill, owner: profileUser }); setIsSwapModalOpen(true); }}
+                                                    className="btn-ember"
+                                                    style={{ width: '100%', padding: '9px', borderRadius: 10, fontSize: 12, fontWeight: 700 }}
                                                 >
                                                     Select to Swap
                                                 </button>
@@ -363,83 +324,104 @@ const Profile = () => {
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-gray-500 italic">No skills listed yet.</p>
+                                <p style={{ fontSize: 13, color: 'var(--text-low)', fontStyle: 'italic' }}>No skills listed yet.</p>
                             )}
-                        </div>
+                        </GlassCard>
 
                         {/* Skills Wanted */}
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 h-full flex flex-col">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="p-3 bg-orange-50 text-orange-600 rounded-2xl border border-orange-100">
-                                    <Target size={24} />
+                        <GlassCard style={{ padding: 28, borderRadius: 'var(--r-lg)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                                <div style={{ width: 36, height: 36, background: 'var(--current-dim)', border: '1px solid rgba(94,234,212,0.3)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Target size={18} style={{ color: 'var(--current)' }} />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Skills I Want</h2>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Growth Goals</p>
+                                    <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 17, color: 'var(--text-hi)' }}>
+                                        Skills I Want
+                                    </h2>
+                                    <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 9, color: 'var(--text-low)', letterSpacing: '0.1em' }}>
+                                        GROWTH GOALS
+                                    </p>
                                 </div>
                             </div>
 
-                            {profileUser.skillsWanted && profileUser.skillsWanted.length > 0 ? (
-                                <div className="space-y-4 flex-1">
+                            {profileUser.skillsWanted?.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                     {profileUser.skillsWanted.map((skill, idx) => (
-                                        <div key={idx} className="p-5 rounded-2xl bg-orange-50/30 border border-orange-100/50 hover:border-orange-200 transition-all group">
-                                            <h3 className="font-black text-orange-900 text-base mb-1 group-hover:text-orange-600 transition-colors uppercase tracking-tight">{skill.title}</h3>
+                                        <div key={idx} style={{ padding: '14px 16px', background: 'var(--current-dim)', border: '1px solid rgba(94,234,212,0.15)', borderRadius: 12 }}>
+                                            <h3 style={{ fontWeight: 700, fontSize: 14, color: 'var(--current)', marginBottom: 4 }}>
+                                                {skill.title}
+                                            </h3>
                                             {skill.description && (
-                                                <p className="text-orange-800/60 text-sm leading-relaxed font-medium line-clamp-2">{skill.description}</p>
+                                                <p style={{ fontSize: 12, color: 'var(--text-mid)', lineHeight: 1.55 }}>{skill.description}</p>
                                             )}
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center py-8 text-center px-4 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200">
-                                    <Search size={32} className="text-gray-200 mb-3" />
-                                    <p className="text-gray-400 text-sm font-bold italic">Not looking for anything specific right now.</p>
+                                <div style={{ padding: '32px 16px', textAlign: 'center', border: '1px dashed var(--glass-border)', borderRadius: 12 }}>
+                                    <Search size={28} style={{ color: 'var(--text-low)', marginBottom: 10, opacity: 0.4 }} />
+                                    <p style={{ fontSize: 12, color: 'var(--text-low)', fontStyle: 'italic' }}>
+                                        Not looking for anything specific right now.
+                                    </p>
                                 </div>
                             )}
-                        </div>
+                        </GlassCard>
                     </div>
 
                     {/* Reviews */}
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
-                        <div className="flex justify-between items-center mb-8">
-                            <h2 className="text-2xl font-bold text-gray-900">Reviews from Neighbors</h2>
-                            {profileUser.reviews && profileUser.reviews.length > 3 && (
+                    <GlassCard style={{ padding: 32, borderRadius: 'var(--r-xl)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                            <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 20, color: 'var(--text-hi)' }}>
+                                Community Reviews
+                            </h2>
+                            {profileUser.reviews?.length > 3 && (
                                 <button
-                                    onClick={() => setShowAllReviews(prev => !prev)}
-                                    className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1"
+                                    onClick={() => setShowAllReviews(v => !v)}
+                                    style={{ fontSize: 12, color: 'var(--current)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'Space Mono, monospace', letterSpacing: '0.06em' }}
                                 >
-                                    {showAllReviews ? `Show Less` : `View All (${profileUser.reviews.length})`}
+                                    {showAllReviews ? 'LESS' : `ALL (${profileUser.reviews.length})`}
                                 </button>
                             )}
                         </div>
 
-                        <div className="space-y-8 divide-y divide-gray-100">
-                            {profileUser.reviews && profileUser.reviews.length > 0 ? (showAllReviews ? profileUser.reviews : profileUser.reviews.slice(0, 3)).map((review) => (
-                                <div key={review._id} className="pt-8 first:pt-0">
-                                    <div className="flex items-start gap-4">
-                                        <img src={getAvatarUrl(review.reviewer?.avatar, review.reviewer?.name)} alt={review.reviewer?.name} className="w-12 h-12 rounded-full bg-gray-200 object-cover" />
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-gray-900">{review.reviewer?.name}</h4>
-                                                <span className="text-sm text-gray-400">{new Date(review.createdAt).toLocaleDateString()}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            {profileUser.reviews?.length > 0
+                                ? (showAllReviews ? profileUser.reviews : profileUser.reviews.slice(0, 3)).map(review => (
+                                    <div key={review._id} style={{ paddingBottom: 24, borderBottom: '1px solid var(--glass-border)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 12 }}>
+                                            <img src={getAvatarUrl(review.reviewer?.avatar, review.reviewer?.name)} alt={review.reviewer?.name}
+                                                style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <h4 style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-hi)' }}>{review.reviewer?.name}</h4>
+                                                        {/* Verified exchange badge */}
+                                                        <ExchangeSeal triggered={false} size={20} />
+                                                    </div>
+                                                    <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)' }}>
+                                                        {new Date(review.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 3, marginBottom: 8 }}>
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <Star key={i} size={13} style={{ color: i < review.rating ? '#FBBF24' : 'var(--text-low)', fill: i < review.rating ? '#FBBF24' : 'none' }} />
+                                                    ))}
+                                                </div>
+                                                {review.comment && (
+                                                    <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.65, fontStyle: 'italic' }}>"{review.comment}"</p>
+                                                )}
                                             </div>
-                                            <div className="flex text-yellow-400 mb-3">
-                                                {[...Array(5)].map((_, i) => (
-                                                    <Star key={i} size={14} fill={i < review.rating ? "currentColor" : "none"} className={i < review.rating ? "" : "text-gray-300"} />
-                                                ))}
-                                            </div>
-                                            {review.comment && <p className="text-gray-600 italic">"{review.comment}"</p>}
                                         </div>
                                     </div>
-                                </div>
-                            )) : (
-                                <p className="text-gray-500">No reviews yet.</p>
-                            )}
+                                ))
+                                : <p style={{ fontSize: 13, color: 'var(--text-low)', fontStyle: 'italic' }}>No reviews yet.</p>
+                            }
                         </div>
-                    </div>
+                    </GlassCard>
                 </div>
             </div>
 
+            {/* Modals */}
             <EditProfileModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
@@ -447,53 +429,21 @@ const Profile = () => {
                 onSave={async (updatedData) => {
                     try {
                         const token = localStorage.getItem('token');
-                        const config = { headers: { Authorization: `Bearer ${token}` } };
-                        const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/profile`, updatedData, config);
-
-                        setProfileUser(prev => ({
-                            ...prev,
-                            name: res.data.name,
-                            location: res.data.location,
-                            about: res.data.bio,
-                            avatar: res.data.avatar,
-                            skillsWanted: res.data.skillsWanted
-                        }));
-
-                        // Update global auth context with EVERYTHING to ensure consistency
-                        if (updateUserState) {
-                            updateUserState(res.data);
-                        }
-
-                        setToastMessage('Profile updated successfully!');
-                        setShowSuccessToast(true);
-                        setTimeout(() => setShowSuccessToast(false), 3000);
+                        const res = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/profile`, updatedData, { headers: { Authorization: `Bearer ${token}` } });
+                        setProfileUser(prev => ({ ...prev, name: res.data.name, location: res.data.location, about: res.data.bio, avatar: res.data.avatar, skillsWanted: res.data.skillsWanted }));
+                        if (updateUserState) updateUserState(res.data);
+                        show('Profile updated!', 'success');
                     } catch (error) {
-                        console.error('Failed to update profile:', error);
-                        alert('Failed to update profile. Please try again.');
+                        show('Failed to update profile.', 'error');
                     }
                 }}
             />
-
             <RequestSwapModal
                 isOpen={isSwapModalOpen}
                 onClose={() => setIsSwapModalOpen(false)}
                 skill={selectedSkill}
-                onSuccess={() => {
-                    setToastMessage(`Swap request sent to ${profileUser.name}!`);
-                    setShowSuccessToast(true);
-                    setTimeout(() => setShowSuccessToast(false), 3000);
-                }}
+                onSuccess={() => show(`Swap request sent to ${profileUser.name}!`, 'success')}
             />
-
-            {/* Success Toast */}
-            {showSuccessToast && (
-                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[200] bg-gray-900 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5 duration-300">
-                    <div className="bg-green-500 p-1 rounded-full">
-                        <CheckCircle size={16} />
-                    </div>
-                    <span className="font-bold text-sm">{toastMessage}</span>
-                </div>
-            )}
         </div>
     );
 };

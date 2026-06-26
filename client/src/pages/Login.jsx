@@ -1,12 +1,17 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import axios from 'axios';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, Loader2, Shield, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, Lock, Mail } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
+import { motion } from 'framer-motion';
 import AuthContext from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import ConstellationSVG from '../components/ui/ConstellationSVG';
+import OtpInput from '../components/ui/OtpInput';
+import Button from '../components/ui/Button';
 
 const GoogleIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05" />
@@ -16,6 +21,7 @@ const GoogleIcon = () => (
 
 const Login = () => {
     const { login, googleAuth, verifyOtp, resendOtp } = useContext(AuthContext);
+    const { theme } = useTheme();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [showPassword, setShowPassword] = useState(false);
@@ -24,26 +30,34 @@ const Login = () => {
     const [emailOtp, setEmailOtp] = useState('');
     const [maskedPhone, setMaskedPhone] = useState('');
     const [resendTimer, setResendTimer] = useState(0);
+    const [error, setError] = useState('');
+
+    // Resend countdown timer
+    useEffect(() => {
+        if (resendTimer <= 0) return;
+        const interval = setInterval(() => setResendTimer(t => t - 1), 1000);
+        return () => clearInterval(interval);
+    }, [resendTimer]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        setError('');
     };
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-
+        setError('');
         try {
             await login(formData.email, formData.password);
             navigate('/dashboard');
-        } catch (error) {
-            if (error.response?.data?.requiresVerification) {
+        } catch (err) {
+            if (err.response?.data?.requiresVerification) {
                 setIsOtpStep(true);
-                setMaskedPhone(error.response.data.maskedPhone || formData.email);
+                setMaskedPhone(err.response.data.maskedPhone || formData.email);
                 setResendTimer(60);
-                alert("Please verify your account first. OTP sent.");
             } else {
-                alert(error.response?.data?.message || 'Login failed');
+                setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
             }
         } finally {
             setIsLoading(false);
@@ -53,11 +67,12 @@ const Login = () => {
     const handleVerifyOtp = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
         try {
             await verifyOtp(formData.email, emailOtp);
             navigate('/dashboard');
-        } catch (error) {
-            alert(error.response?.data?.message || 'OTP verification failed');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Invalid code — please try again.');
         } finally {
             setIsLoading(false);
         }
@@ -68,258 +83,352 @@ const Login = () => {
         try {
             await resendOtp(formData.email);
             setResendTimer(60);
-            alert("OTP resent successfully");
-        } catch (error) {
-            alert(error.response?.data?.message || 'Failed to resend OTP');
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to resend. Please wait a moment.');
         }
     };
-
-    // Timer effect
-    useState(() => {
-        let interval;
-        if (resendTimer > 0) {
-            interval = setInterval(() => {
-                setResendTimer((prev) => prev - 1);
-            }, 1000);
-        }
-        return () => clearInterval(interval);
-    }, [resendTimer]);
 
     const handleGoogleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setIsLoading(true);
+            setError('');
             try {
                 await googleAuth(tokenResponse.access_token);
                 navigate('/dashboard');
-            } catch (error) {
-                if (error.response?.data?.requiresVerification) {
+            } catch (err) {
+                if (err.response?.data?.requiresVerification) {
                     setIsOtpStep(true);
-                    setMaskedPhone(error.response.data.maskedPhone || "your device");
+                    setMaskedPhone(err.response.data.maskedPhone || 'your email');
                     setResendTimer(60);
-                    alert("Complete OTP verification first.");
                 } else {
-                    alert(error.response?.data?.message || "Google Login failed");
+                    setError(err.response?.data?.message || 'Google sign-in failed.');
                 }
             } finally {
                 setIsLoading(false);
             }
         },
-        onError: () => {
-            alert("Google Login Failed");
-        }
+        onError: () => setError('Google sign-in failed. Please try again.'),
     });
 
     return (
-        <div className="min-h-screen w-full flex bg-white font-sans">
-            {/* LEFT SIDE: Visual Branding */}
-            <div className="hidden lg:flex w-1/2 relative overflow-hidden flex-col justify-between p-12 text-white bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')] bg-cover bg-center">
-                {/* Dark Gradient Overlay for readability */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent z-10 pointer-events-none"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/30 z-10 pointer-events-none"></div>
-
-                <div className="relative z-20">
-                    <div className="flex items-center gap-2 mb-8">
-                        <div className="p-1 px-1.5 bg-white/20 rounded backdrop-blur-sm border border-white/30">
-                            <Shield size={18} className="text-white fill-white/20" />
-                        </div>
-                        <span className="text-lg font-bold tracking-tight text-white/90">SkillSwap</span>
-                    </div>
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            background: 'var(--ink)',
+        }}>
+            {/* Left — Constellation branding */}
+            <div
+                className="hidden lg:flex"
+                style={{
+                    width: '50%',
+                    background: 'var(--ink-2)',
+                    borderRight: '1px solid var(--glass-border)',
+                    flexDirection: 'column',
+                    padding: 48,
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Logo */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, zIndex: 2, position: 'relative' }}>
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--ember)" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22" />
+                        <circle cx="14" cy="14" r="9" fill="none" stroke="var(--current)" strokeWidth="2.2" strokeLinecap="round" strokeDasharray="56.5" strokeDashoffset="22" transform="rotate(180 14 14)" />
+                        <circle cx="11" cy="14" r="1.8" fill="var(--ember)" opacity="0.9" />
+                        <circle cx="17" cy="14" r="1.8" fill="var(--current)" opacity="0.9" />
+                    </svg>
+                    <span style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, fontSize: 20, color: 'var(--text-hi)', letterSpacing: '-0.02em' }}>
+                        SkillSwap
+                    </span>
                 </div>
 
-                <div className="relative z-20 max-w-lg mb-12">
-                    <h1 className="text-5xl font-extrabold tracking-tight mb-6 leading-[1.15] text-white">
-                        Unlock local talent.<br />
-                        Exchange skills.<br />
-                        Build trust.
-                    </h1>
-                    <p className="text-base text-gray-300 font-medium leading-relaxed max-w-md">
-                        Join thousands of neighbors sharing their passions.<br />From gardening to coding, grow your community one<br />skill at a time.
+                {/* Constellation */}
+                <div style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                }}>
+                    <ConstellationSVG size="compact" animate={true} />
+                </div>
+
+                {/* Tagline */}
+                <div style={{ position: 'relative', zIndex: 2 }}>
+                    <h2 style={{
+                        fontFamily: 'Cabinet Grotesk, sans-serif',
+                        fontWeight: 900,
+                        fontSize: 36,
+                        letterSpacing: '-0.03em',
+                        color: 'var(--text-hi)',
+                        lineHeight: 1.1,
+                        marginBottom: 12,
+                    }}>
+                        Exchange skills,<br />
+                        <span className="text-gradient-ec">not money.</span>
+                    </h2>
+                    <p style={{ fontSize: 14, color: 'var(--text-mid)', lineHeight: 1.65 }}>
+                        A trust-based community where your knowledge is the currency.
                     </p>
-                </div>
-
-                <div className="relative z-20 text-[10px] text-gray-400 font-medium tracking-wider">
-                    © {new Date().getFullYear()} SkillSwap Neighborhoods
                 </div>
             </div>
 
-            {/* RIGHT SIDE: Login Form */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 lg:p-24 overflow-y-auto">
-                <div className="w-full max-w-sm space-y-8">
-                    <div className="flex justify-center mb-12">
-                        <Link to="/" className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-all duration-200">
-                            <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                            Back to Home
-                        </Link>
-                    </div>
+            {/* Right — Form */}
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '48px 24px',
+                overflowY: 'auto',
+            }}>
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    style={{ width: '100%', maxWidth: 400 }}
+                >
+                    {/* Back link */}
+                    <Link
+                        to="/"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            fontSize: 13,
+                            color: 'var(--text-low)',
+                            textDecoration: 'none',
+                            marginBottom: 40,
+                            transition: 'color 0.2s ease',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--text-mid)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-low)'}
+                    >
+                        <ArrowLeft size={14} /> Back to home
+                    </Link>
 
-                    <div className="space-y-2 text-center">
-                        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                            {isOtpStep ? "Verify Your Identity" : "Welcome Back!"}
-                        </h2>
-                        <p className="text-gray-500 font-medium text-sm">
+                    {/* Header */}
+                    <div style={{ marginBottom: 36 }}>
+                        <h1 style={{
+                            fontFamily: 'Cabinet Grotesk, sans-serif',
+                            fontWeight: 800,
+                            fontSize: 32,
+                            letterSpacing: '-0.025em',
+                            color: 'var(--text-hi)',
+                            marginBottom: 8,
+                        }}>
+                            {isOtpStep ? 'Verify your identity' : 'Welcome back'}
+                        </h1>
+                        <p style={{ fontSize: 14, color: 'var(--text-mid)' }}>
                             {isOtpStep
                                 ? `Enter the 6-digit code sent to ${maskedPhone}`
-                                : "Log in to connect with your community."
+                                : 'Sign in to continue your exchanges.'
                             }
                         </p>
                     </div>
 
-                    {isOtpStep ? (
-                        <form onSubmit={handleVerifyOtp} className="space-y-6 mt-6">
-                            <div className="space-y-2">
-                                <div className="mt-6">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                                            <Mail size={12} className="text-blue-500" />
-                                            Email OTP
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute left-4 top-3 text-gray-400 pointer-events-none">
-                                                <ShieldCheck size={18} />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                maxLength="6"
-                                                required
-                                                placeholder="000000"
-                                                className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none text-xl font-bold text-center text-gray-900 placeholder:text-gray-300"
-                                                value={emailOtp}
-                                                onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={isLoading || emailOtp.length !== 6}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                {isLoading ? <Loader2 size={20} className="animate-spin" /> : <span>Verify Account</span>}
-                            </button>
-
-                            <div className="text-center space-y-4">
-                                <p className="text-sm text-gray-500">
-                                    Didn't receive the code?{' '}
-                                    <button
-                                        type="button"
-                                        onClick={handleResendOtp}
-                                        disabled={resendTimer > 0}
-                                        className={`font-bold ${resendTimer > 0 ? 'text-gray-400' : 'text-blue-600 hover:underline'}`}
-                                    >
-                                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
-                                    </button>
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsOtpStep(false)}
-                                    className="text-xs text-gray-400 hover:text-gray-600 font-medium"
-                                >
-                                    Login with a different account
-                                </button>
-                            </div>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleLogin} className="space-y-5 mt-8">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold text-gray-900">Email Address</label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    required
-                                    placeholder="enter your Email"
-                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none text-gray-900 placeholder:text-gray-400 text-sm"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <div className="flex justify-between items-center">
-                                    <label className="text-xs font-bold text-gray-900">Password</label>
-                                    <Link to="/forgot-password" title="Forgot Password link" className="text-[10px] font-bold text-blue-600 hover:text-blue-700 hover:underline">
-                                        Forgot Password?
-                                    </Link>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        name="password"
-                                        required
-                                        placeholder="Enter your password"
-                                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none text-gray-900 placeholder:text-gray-400 text-sm pr-12"
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-3 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-                                        tabIndex="-1"
-                                    >
-                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg shadow-sm shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed mt-4 text-sm"
-                            >
-                                {isLoading ? (
-                                    <Loader2 size={16} className="animate-spin" />
-                                ) : (
-                                    <>
-                                        Sign In <ArrowRight size={16} />
-                                    </>
-                                )}
-                            </button>
-                        </form>
+                    {/* Error */}
+                    {error && (
+                        <div style={{
+                            marginBottom: 20,
+                            padding: '12px 16px',
+                            background: 'rgba(248,113,113,0.10)',
+                            border: '1px solid rgba(248,113,113,0.25)',
+                            borderRadius: 10,
+                            fontSize: 13,
+                            color: theme === 'dark' ? '#FCA5A5' : '#B91C1C',
+                        }}>
+                            {error}
+                        </div>
                     )}
 
-                    {!isOtpStep && (
-                        <>
-                            <div className="relative mt-8 mb-6">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-gray-100"></div>
-                                </div>
-                                <div className="relative flex justify-center text-[10px]">
-                                    <span className="px-4 bg-white text-gray-400 uppercase tracking-widest font-medium">Or continue with</span>
-                                </div>
-                            </div>
+                    {isOtpStep ? (
+                        <form onSubmit={handleVerifyOtp}>
+                            <OtpInput
+                                value={emailOtp}
+                                onChange={setEmailOtp}
+                                onResend={handleResendOtp}
+                                resendTimer={resendTimer}
+                            />
+
+                            <Button
+                                variant="current"
+                                loading={isLoading}
+                                size="lg"
+                                style={{ width: '100%', borderRadius: 12, marginBottom: 16 }}
+                                disabled={emailOtp.length !== 6}
+                                type="submit"
+                            >
+                                Verify account
+                            </Button>
 
                             <button
                                 type="button"
-                                onClick={handleGoogleLogin}
-                                className="w-full bg-white hover:bg-gray-50 text-gray-700 font-bold py-3.5 rounded-lg border border-gray-200 transition-all flex items-center justify-center gap-3 text-sm shadow-sm"
+                                onClick={() => setIsOtpStep(false)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-low)',
+                                    fontSize: 13,
+                                    cursor: 'pointer',
+                                }}
                             >
-                                <GoogleIcon />
-                                <span>Google</span>
+                                Sign in with a different account
                             </button>
-
-                            <div className="mt-8 pt-6 border-t border-gray-50">
-                                <div className="text-center mb-4">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">New to SkillSwap?</span>
+                        </form>
+                    ) : (
+                        <>
+                            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div>
+                                    <label style={{
+                                        display: 'block',
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        color: 'var(--text-mid)',
+                                        marginBottom: 8,
+                                        letterSpacing: '0.02em',
+                                    }}>
+                                        Email address
+                                    </label>
+                                    <div style={{ position: 'relative' }}>
+                                        <Mail size={15} style={{
+                                            position: 'absolute', left: 14, top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-low)', pointerEvents: 'none',
+                                        }} />
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            required
+                                            placeholder="enter your email"
+                                            className="glass-input"
+                                            style={{ paddingLeft: 40 }}
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                        />
+                                    </div>
                                 </div>
 
-                                <Link
-                                    to="/register"
-                                    className="w-full flex items-center justify-center bg-white hover:bg-gray-50 text-blue-600 font-bold py-3.5 rounded-lg border border-gray-200 transition-all text-sm shadow-sm"
+                                <div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-mid)', letterSpacing: '0.02em' }}>
+                                            Password
+                                        </label>
+                                        <Link to="/forgot-password" style={{
+                                            fontSize: 12, color: 'var(--current)',
+                                            textDecoration: 'none', fontWeight: 600,
+                                            transition: 'opacity 0.2s',
+                                        }}>
+                                            Forgot password?
+                                        </Link>
+                                    </div>
+                                    <div style={{ position: 'relative' }}>
+                                        <Lock size={15} style={{
+                                            position: 'absolute', left: 14, top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-low)', pointerEvents: 'none',
+                                        }} />
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            name="password"
+                                            required
+                                            placeholder="your password"
+                                            className="glass-input"
+                                            style={{ paddingLeft: 40, paddingRight: 44 }}
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(v => !v)}
+                                            tabIndex={-1}
+                                            style={{
+                                                position: 'absolute', right: 14, top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'none', border: 'none',
+                                                color: 'var(--text-low)', cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center',
+                                            }}
+                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        >
+                                            {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <Button
+                                    variant="ember"
+                                    loading={isLoading}
+                                    size="lg"
+                                    type="submit"
+                                    style={{ width: '100%', borderRadius: 12, marginTop: 8 }}
                                 >
+                                    Sign in <ArrowRight size={16} />
+                                </Button>
+                            </form>
+
+                            {/* Divider */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0' }}>
+                                <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
+                                <span style={{ fontSize: 11, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace', letterSpacing: '0.1em' }}>
+                                    OR
+                                </span>
+                                <div style={{ flex: 1, height: 1, background: 'var(--glass-border)' }} />
+                            </div>
+
+                            {/* Google */}
+                            <button
+                                type="button"
+                                onClick={handleGoogleLogin}
+                                className="btn-ghost"
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: 12,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 10,
+                                }}
+                            >
+                                <GoogleIcon />
+                                Continue with Google
+                            </button>
+
+                            {/* Register link */}
+                            <p style={{
+                                textAlign: 'center',
+                                marginTop: 32,
+                                fontSize: 13,
+                                color: 'var(--text-low)',
+                            }}>
+                                New to SkillSwap?{' '}
+                                <Link to="/register" style={{ color: 'var(--current)', fontWeight: 600, textDecoration: 'none' }}>
                                     Create an account
                                 </Link>
-                            </div>
+                            </p>
                         </>
                     )}
 
-                    <div className="text-center pt-6">
-                        <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1.5 font-medium">
-                            <Lock size={10} /> Secure, encrypted connection
-                        </p>
-                    </div>
-                </div>
+                    {/* Security note */}
+                    <p style={{
+                        textAlign: 'center',
+                        marginTop: 24,
+                        fontSize: 11,
+                        color: 'var(--text-low)',
+                        fontFamily: 'Space Mono, monospace',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                    }}>
+                        <Lock size={10} /> Secure, encrypted connection
+                    </p>
+                </motion.div>
             </div>
         </div>
     );
