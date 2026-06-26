@@ -11,6 +11,7 @@ import GlassCard from '../components/ui/GlassCard';
 import ExchangeSeal from '../components/ui/ExchangeSeal';
 import OtpInput from '../components/ui/OtpInput';
 import { useToast } from '../components/ui/Toast';
+import { ProfileSkeleton } from '../components/ui/Skeleton';
 
 const ProfileStat = ({ label, value, accent }) => (
     <div style={{ textAlign: 'center', padding: '16px 20px' }}>
@@ -95,72 +96,7 @@ const Profile = () => {
         if (currentUser) fetchProfileData();
     }, [id, currentUser]);
 
-    if (!profileUser) return (
-        <div style={{ padding: '32px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
-            {/* ── Hero skeleton ─────────────────────────────── */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: 24,
-                marginBottom: 24,
-            }}>
-                {/* Left — Avatar + name */}
-                <div className="glass" style={{ borderRadius: 'var(--r-xl)', padding: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                    {/* Avatar circle */}
-                    <div className="skeleton" style={{ width: 96, height: 96, borderRadius: '50%' }} />
-                    {/* Name */}
-                    <div className="skeleton" style={{ width: '60%', height: 22, borderRadius: 8 }} />
-                    {/* Location */}
-                    <div className="skeleton" style={{ width: '40%', height: 14, borderRadius: 6 }} />
-                    {/* Bio lines */}
-                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                        <div className="skeleton" style={{ width: '100%', height: 12, borderRadius: 6 }} />
-                        <div className="skeleton" style={{ width: '80%', height: 12, borderRadius: 6 }} />
-                        <div className="skeleton" style={{ width: '65%', height: 12, borderRadius: 6 }} />
-                    </div>
-                    {/* Button */}
-                    <div className="skeleton" style={{ width: '100%', height: 44, borderRadius: 12, marginTop: 8 }} />
-                </div>
-
-                {/* Right — Stats + seal */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {/* Stats row */}
-                    <div className="glass" style={{ borderRadius: 'var(--r-xl)', padding: 24, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                        {[1, 2, 3].map(i => (
-                            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                <div className="skeleton" style={{ width: 40, height: 28, borderRadius: 6 }} />
-                                <div className="skeleton" style={{ width: 56, height: 10, borderRadius: 4 }} />
-                            </div>
-                        ))}
-                    </div>
-                    {/* Exchange seal card */}
-                    <div className="glass" style={{ borderRadius: 'var(--r-xl)', padding: 28, display: 'flex', alignItems: 'center', gap: 20, flex: 1 }}>
-                        <div className="skeleton" style={{ width: 56, height: 56, borderRadius: '50%', flexShrink: 0 }} />
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div className="skeleton" style={{ width: '70%', height: 14, borderRadius: 6 }} />
-                            <div className="skeleton" style={{ width: '50%', height: 12, borderRadius: 6 }} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Skills skeleton ────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
-                {[0, 1].map(col => (
-                    <div key={col} className="glass" style={{ borderRadius: 'var(--r-xl)', padding: 28 }}>
-                        {/* Section heading */}
-                        <div className="skeleton" style={{ width: '45%', height: 16, borderRadius: 6, marginBottom: 20 }} />
-                        {/* Skill chips */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="skeleton" style={{ width: '100%', height: 52, borderRadius: 12 }} />
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+    if (!profileUser) return <ProfileSkeleton />;
 
     return (
         <div style={{ padding: '32px 24px 80px', maxWidth: 1200, margin: '0 auto' }}>
