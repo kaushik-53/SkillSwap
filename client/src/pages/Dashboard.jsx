@@ -9,6 +9,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import GlassCard from '../components/ui/GlassCard';
 import Skeleton from '../components/ui/Skeleton';
 import { useToast } from '../components/ui/Toast';
+import MatchSuggestions from '../components/MatchSuggestions';
 
 /* Animated counter on first view */
 const CountUp = ({ target, duration = 1200 }) => {
@@ -147,6 +148,11 @@ const Dashboard = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr minmax(0, 340px)', gap: 28, alignItems: 'start' }}>
                 {/* Left Main */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 36, minWidth: 0 }}>
+
+                    {/* Smart Match Recommendations */}
+                    <motion.section {...fadeUp(0.02)}>
+                        <MatchSuggestions />
+                    </motion.section>
 
                     {/* Active Swaps */}
                     <motion.section {...fadeUp(0.05)}>
