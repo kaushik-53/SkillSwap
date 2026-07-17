@@ -1,8 +1,9 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Star, MapPin, Check, AlertCircle } from 'lucide-react';
+import { Star, MapPin, Check, AlertCircle, Send } from 'lucide-react';
+import { io } from 'socket.io-client';
 import AuthContext from '../context/AuthContext';
 import { getAvatarUrl } from '../utils/imageHelpers';
 import ExchangeSeal from '../components/ui/ExchangeSeal';
@@ -38,6 +39,13 @@ const Session = () => {
     const [reviewSubmitted, setReviewSubmitted] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [socket, setSocket] = useState(null);
+    const [partnerIsTyping, setPartnerIsTyping] = useState(false);
+    const chatEndRef = useRef(null);
+    const typingTimeoutRef = useRef(null);
+
     const fetchRequest = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -53,7 +61,99 @@ const Session = () => {
         }
     };
 
-    useEffect(() => { fetchRequest(); }, [id]);
+    const fetchMessages = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/requests/${id}/messages`, config);
+            setMessages(res.data);
+        } catch (e) {
+            console.error('Error fetching messages:', e);
+        }
+    };
+
+    useEffect(() => {
+        fetchRequest();
+        fetchMessages();
+    }, [id]);
+
+    useEffect(() => {
+        if (!user) return;
+        const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const socketInstance = io(socketUrl, { withCredentials: true });
+        setSocket(socketInstance);
+
+        socketInstance.emit('join_room', id);
+
+        socketInstance.on('receive_message', (msg) => {
+            setMessages(prev => {
+                if (prev.some(m => m._id === msg._id)) return prev;
+                return [...prev, msg];
+            });
+        });
+
+        socketInstance.on('user_typing', ({ senderId, isTyping }) => {
+            if (senderId !== user?._id) {
+                setPartnerIsTyping(isTyping);
+            }
+        });
+
+        return () => {
+            socketInstance.disconnect();
+        };
+    }, [id, user]);
+
+    useEffect(() => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollTop = chatEndRef.current.scrollHeight;
+        }
+    }, [messages, partnerIsTyping]);
+
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !socket) return;
+
+        socket.emit('send_message', {
+            requestId: id,
+            senderId: user._id,
+            text: newMessage.trim()
+        });
+
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        socket.emit('typing', {
+            requestId: id,
+            senderId: user._id,
+            isTyping: false
+        });
+
+        setNewMessage('');
+    };
+
+    const handleInputChange = (e) => {
+        setNewMessage(e.target.value);
+
+        if (!socket) return;
+
+        socket.emit('typing', {
+            requestId: id,
+            senderId: user._id,
+            isTyping: true
+        });
+
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+
+        typingTimeoutRef.current = setTimeout(() => {
+            socket.emit('typing', {
+                requestId: id,
+                senderId: user._id,
+                isTyping: false
+            });
+        }, 2000);
+    };
 
     if (loading) {
         return (
@@ -347,6 +447,122 @@ const Session = () => {
                     )}
                 </GlassCard>
             </div>
+
+            {/* Chat Hub */}
+            <GlassCard style={{ padding: 28, borderRadius: 'var(--r-xl)', marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', paddingBottom: 16 }}>
+                    <div>
+                        <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 18, color: 'var(--text-hi)' }}>
+                            Session Discussion
+                        </h3>
+                        <p style={{ fontSize: 11, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
+                            SECURE PEER-TO-PEER CHAT
+                        </p>
+                    </div>
+                    {partnerIsTyping && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, color: 'var(--current)', fontFamily: 'Space Mono, monospace' }}>
+                                {partner?.name?.split(' ')[0]} is typing
+                            </span>
+                            <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Messages scroll area */}
+                <div 
+                    ref={chatEndRef}
+                    style={{ 
+                        maxHeight: 320, 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 12, 
+                        paddingRight: 6,
+                        minHeight: 120,
+                    }}
+                >
+                    {messages.length > 0 ? (
+                        messages.map((msg, idx) => {
+                            const isMe = msg.sender?._id === user?._id || msg.sender === user?._id;
+                            return (
+                                <div 
+                                    key={msg._id || idx} 
+                                    style={{ 
+                                        display: 'flex', 
+                                        justifyContent: isMe ? 'flex-end' : 'flex-start',
+                                        alignItems: 'flex-start',
+                                        gap: 10,
+                                    }}
+                                >
+                                    {!isMe && (
+                                        <img 
+                                            src={getAvatarUrl(partner?.avatar, partner?.name)} 
+                                            alt={partner?.name} 
+                                            style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginTop: 4 }}
+                                        />
+                                    )}
+                                    <div style={{ maxWidth: '70%' }}>
+                                        <div style={{ 
+                                            background: isMe ? 'rgba(94,234,212,0.1)' : 'rgba(255,255,255,0.03)',
+                                            border: isMe ? '1px solid rgba(94,234,212,0.18)' : '1px solid var(--glass-border)',
+                                            borderRadius: isMe ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
+                                            padding: '10px 14px',
+                                            fontSize: 13,
+                                            color: 'var(--text-mid)',
+                                            wordBreak: 'break-word',
+                                            lineHeight: 1.5,
+                                        }}>
+                                            {msg.text}
+                                        </div>
+                                        <span style={{ 
+                                            display: 'block', 
+                                            fontSize: 9, 
+                                            fontFamily: 'Space Mono, monospace', 
+                                            color: 'var(--text-low)', 
+                                            textAlign: isMe ? 'right' : 'left',
+                                            marginTop: 4,
+                                            padding: '0 4px',
+                                        }}>
+                                            {new Date(msg.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 120, opacity: 0.5 }}>
+                            <p style={{ fontSize: 13, color: 'var(--text-low)', fontStyle: 'italic' }}>
+                                No messages yet. Say hello to start coordinating!
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Message input */}
+                <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                    <input
+                        type="text"
+                        placeholder="Type a message..."
+                        className="glass-input"
+                        style={{ flex: 1, padding: '12px 16px', borderRadius: 10 }}
+                        value={newMessage}
+                        onChange={handleInputChange}
+                    />
+                    <Button
+                        variant="current"
+                        size="md"
+                        type="submit"
+                        disabled={!newMessage.trim()}
+                        style={{ borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, padding: 0 }}
+                    >
+                        <Send size={16} />
+                    </Button>
+                </form>
+            </GlassCard>
 
             {/* Review Form — unlocks after dual-confirm */}
             <AnimatePresence>
