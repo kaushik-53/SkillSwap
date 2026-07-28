@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * ConstellationSVG — animated SVG network of nodes & edges.
- * Represents "finding a match" — the Discovery Constellation.
- * 
+ * Nodes continuously float/drift using requestAnimationFrame.
+ *
  * Props:
  *   size    — 'hero' | 'compact'  (default 'hero')
  *   animate — bool (default true) — false = static snapshot
@@ -41,24 +41,64 @@ const COMPACT_EDGES = [
     [1, 2], [1, 3], [1, 4], [1, 5], [3, 6], [4, 6], [2, 5],
 ];
 
+// Generate a unique, deterministic float config per node
+const makeFloatConfig = (id) => ({
+    // Each node gets its own frequency and phase so they move independently
+    freqX: 0.0003 + (id * 0.00007 % 0.0002),
+    freqY: 0.00025 + (id * 0.00009 % 0.0002),
+    ampX: 10 + (id * 3.7 % 12),   // drift amplitude in px
+    ampY: 8 + (id * 2.9 % 10),
+    phaseX: id * 1.3,
+    phaseY: id * 0.9,
+});
+
 const ConstellationSVG = ({ size = 'hero', animate = true }) => {
     const isHero = size === 'hero';
-    const nodes = isHero ? HERO_NODES : COMPACT_NODES;
+    const baseNodes = isHero ? HERO_NODES : COMPACT_NODES;
     const edges = isHero ? HERO_EDGES : COMPACT_EDGES;
     const vb = isHero ? '0 0 560 500' : '0 0 280 250';
-    const w = isHero ? '100%' : '100%';
-    const h = isHero ? '100%' : '100%';
 
-    const getNode = (id) => nodes.find(n => n.id === id);
+    // Float configs computed once per node
+    const floatConfigs = baseNodes.map(n => makeFloatConfig(n.id));
 
-    // Unique animation id to avoid conflicts on same page
-    const uid = Math.random().toString(36).slice(2, 7);
+    // Live node positions driven by rAF
+    const [positions, setPositions] = useState(() =>
+        baseNodes.map(n => ({ cx: n.cx, cy: n.cy }))
+    );
+
+    const rafRef = useRef(null);
+
+    useEffect(() => {
+        if (!animate) return;
+
+        const tick = (time) => {
+            setPositions(baseNodes.map((n, i) => {
+                const cfg = floatConfigs[i];
+                return {
+                    cx: n.cx + Math.sin(time * cfg.freqX + cfg.phaseX) * cfg.ampX,
+                    cy: n.cy + Math.cos(time * cfg.freqY + cfg.phaseY) * cfg.ampY,
+                };
+            }));
+            rafRef.current = requestAnimationFrame(tick);
+        };
+
+        rafRef.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(rafRef.current);
+    }, [animate]); // eslint-disable-line
+
+    const getPos = (id) => {
+        const idx = baseNodes.findIndex(n => n.id === id);
+        return positions[idx] || { cx: 0, cy: 0 };
+    };
+
+    // Unique id to avoid gradient/filter id collisions if used multiple times on same page
+    const uid = useRef(Math.random().toString(36).slice(2, 7)).current;
 
     return (
         <svg
             viewBox={vb}
-            width={w}
-            height={h}
+            width="100%"
+            height="100%"
             style={{ overflow: 'visible' }}
             aria-hidden="true"
         >
@@ -80,59 +120,50 @@ const ConstellationSVG = ({ size = 'hero', animate = true }) => {
                 </filter>
             </defs>
 
-            {/* Edges */}
+            {/* Edges — recomputed every frame since node positions drift */}
             {edges.map(([a, b], i) => {
-                const na = getNode(a);
-                const nb = getNode(b);
-                if (!na || !nb) return null;
-                const len = Math.hypot(nb.cx - na.cx, nb.cy - na.cy);
-                const edgeStroke = `url(#current-node-${uid})`;
+                const pa = getPos(a);
+                const pb = getPos(b);
                 return (
                     <line
                         key={`e-${i}`}
-                        x1={na.cx} y1={na.cy}
-                        x2={nb.cx} y2={nb.cy}
-                        stroke={edgeStroke}
+                        x1={pa.cx} y1={pa.cy}
+                        x2={pb.cx} y2={pb.cy}
+                        stroke={`url(#current-node-${uid})`}
                         strokeWidth="1"
                         opacity="0.25"
                         style={animate ? {
-                            strokeDasharray: len,
-                            strokeDashoffset: len,
-                            animation: `constellation-draw 1s ease forwards`,
-                            animationDelay: `${na.delay + 0.3}s`,
-                        } : { strokeDashoffset: 0 }}
+                            transition: 'none',
+                        } : {}}
                     />
                 );
             })}
 
             {/* Nodes */}
-            {nodes.map((node, i) => {
+            {baseNodes.map((node, i) => {
                 const isEmber = i % 3 === 0;
+                const pos = positions[i];
                 return (
                     <g key={node.id} filter={`url(#glow-${uid})`}>
                         {/* Outer ring */}
                         <circle
-                            cx={node.cx} cy={node.cy}
+                            cx={pos.cx} cy={pos.cy}
                             r={node.r + 4}
                             fill="none"
                             stroke={isEmber ? 'var(--ember)' : 'var(--current)'}
                             strokeWidth="0.8"
                             opacity="0.2"
                             style={animate ? {
-                                opacity: 0,
-                                animation: `constellation-draw 0.5s ease forwards`,
-                                animationDelay: `${node.delay + 0.1}s`,
+                                animation: `node-pulse 2.5s ease-in-out ${node.delay + 0.1}s infinite`,
                             } : { opacity: 0.2 }}
                         />
                         {/* Core node */}
                         <circle
-                            cx={node.cx} cy={node.cy}
+                            cx={pos.cx} cy={pos.cy}
                             r={node.r}
                             fill={isEmber ? `url(#ember-node-${uid})` : `url(#current-node-${uid})`}
                             style={animate ? {
-                                opacity: 0,
-                                animation: `constellation-draw 0.6s ease forwards, node-pulse 2.5s ease-in-out infinite`,
-                                animationDelay: `${node.delay}s, ${node.delay + 0.8}s`,
+                                animation: `node-pulse 2.5s ease-in-out ${node.delay + 0.8}s infinite`,
                             } : { opacity: 1 }}
                         />
                     </g>

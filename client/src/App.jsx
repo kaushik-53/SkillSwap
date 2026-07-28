@@ -20,6 +20,7 @@ import ResetPassword from './pages/ResetPassword';
 import Session from './pages/Session';
 import MySwaps from './pages/MySwaps';
 import Navbar from './components/Navbar';
+import ChatBot from './components/ChatBot';
 import './App.css';
 
 /* Ambient background — 3 slow-drifting blobs */
@@ -174,6 +175,8 @@ const LayoutManager = () => {
                     </PageTransition>
                 </AnimatePresence>
             </main>
+            {/* Global SkillBot — visible on every page */}
+            <ChatBot />
         </div>
     );
 };
