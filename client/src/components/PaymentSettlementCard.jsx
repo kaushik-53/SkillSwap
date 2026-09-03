@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { QrCode, CheckCircle, Clock, IndianRupee, Coins, AlertCircle, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import API_BASE from '../utils/api';
 
 /**
  * Generates a standard NPCI UPI deep-link/intent URI.
@@ -30,6 +31,7 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
     const [error, setError] = useState('');
     const [showRejectForm, setShowRejectForm] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
+    const settlingRef = useRef(false); // prevents double-click race on credit transfer
 
     const isCompleted = request?.status === 'Completed';
     const exchangeType = request?.exchangeType;
@@ -38,21 +40,23 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
     const isRequester = request?.sender?._id === currentUser?._id || request?.sender === currentUser?._id;
     const isMentor = !isRequester; // receiver = mentor
 
-    const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     const token = localStorage.getItem('token');
     const config = { headers: { Authorization: `Bearer ${token}` } };
 
     // ── SkillCredits Settlement ──────────────────────────────────────────────
     const handleSettleCredits = async () => {
+        if (settlingRef.current) return; // hard lock — ignore any concurrent call
+        settlingRef.current = true;
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post(`${API}/api/payments/settle-credits`, { requestId: request._id }, config);
+            const res = await axios.post(`${API_BASE}/api/payments/settle-credits`, { requestId: request._id }, config);
             onUpdate?.(res.data);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to settle SkillCredits.');
         } finally {
             setLoading(false);
+            settlingRef.current = false;
         }
     };
 
@@ -65,7 +69,7 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post(`${API}/api/payments/submit-utr`, {
+            const res = await axios.post(`${API_BASE}/api/payments/submit-utr`, {
                 requestId: request._id,
                 utrNumber: utrInput.trim()
             }, config);
@@ -82,7 +86,7 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post(`${API}/api/payments/confirm-receipt`, { requestId: request._id }, config);
+            const res = await axios.post(`${API_BASE}/api/payments/confirm-receipt`, { requestId: request._id }, config);
             onUpdate?.(res.data);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to confirm receipt.');
@@ -96,7 +100,7 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
         setLoading(true);
         setError('');
         try {
-            const res = await axios.post(`${API}/api/payments/reject-utr`, {
+            const res = await axios.post(`${API_BASE}/api/payments/reject-utr`, {
                 requestId: request._id,
                 reason: rejectReason.trim() || 'UTR not matched. Please make the payment and resubmit.'
             }, config);
@@ -158,36 +162,53 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
             </div>
 
             {/* ── SkillCredits flow ── */}
-            {exchangeType === 'SkillCredits' && paymentStatus !== 'Settled' && isCompleted && (
+            {exchangeType === 'SkillCredits' && (
                 <div>
-                    {isRequester ? (
+                    {paymentStatus === 'Settled' ? (
+                        /* Already settled — show in header badge, nothing more to do here */
+                        <p style={{ fontSize: 13, color: '#22c55e', textAlign: 'center', fontWeight: 600 }}>
+                            🪙 SkillCredit transferred! You can now mark the session complete.
+                        </p>
+                    ) : isRequester ? (
+                        /* Learner — show transfer button */
                         <div>
                             <p style={{ fontSize: 13, color: 'var(--text-mid)', marginBottom: 12 }}>
-                                Click below to transfer <strong>1 SkillCredit</strong> from your wallet to the mentor as payment for this session.
+                                Transfer <strong>{agreedAmount || 1} SkillCredit</strong> to the mentor to unlock session completion.
                             </p>
                             <button
                                 onClick={handleSettleCredits}
                                 disabled={loading}
                                 style={{
                                     width: '100%',
-                                    padding: '12px',
+                                    padding: '13px',
                                     borderRadius: 12,
                                     border: 'none',
-                                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                    background: loading ? '#94a3b8' : 'linear-gradient(135deg, #f59e0b, #d97706)',
                                     color: '#fff',
-                                    fontWeight: 700,
+                                    fontWeight: 800,
                                     fontSize: 14,
                                     cursor: loading ? 'not-allowed' : 'pointer',
-                                    opacity: loading ? 0.6 : 1,
+                                    boxShadow: loading ? 'none' : '0 4px 16px rgba(245,158,11,0.35)',
+                                    transition: 'all 0.2s',
                                 }}
                             >
-                                {loading ? 'Processing...' : '🪙 Transfer 1 SkillCredit to Mentor'}
+                                {loading ? 'Processing...' : `🪙 Transfer ${agreedAmount || 1} SkillCredit to Mentor`}
                             </button>
+                            <p style={{ fontSize: 11, color: 'var(--text-low)', textAlign: 'center', marginTop: 8 }}>
+                                This unlocks the "Mark Complete" button for both of you.
+                            </p>
                         </div>
                     ) : (
-                        <p style={{ fontSize: 13, color: 'var(--text-low)', textAlign: 'center' }}>
-                            Waiting for the learner to transfer SkillCredit(s) to you...
-                        </p>
+                        /* Mentor — waiting */
+                        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                            <Clock size={28} style={{ margin: '0 auto 8px', color: '#f59e0b' }} />
+                            <p style={{ fontSize: 13, color: 'var(--text-low)' }}>
+                                Waiting for the learner to transfer <strong>{agreedAmount || 1} SkillCredit</strong> to you.
+                            </p>
+                            <p style={{ fontSize: 11, color: 'var(--text-low)', marginTop: 4 }}>
+                                Once transferred, both of you can mark the session complete.
+                            </p>
+                        </div>
                     )}
                 </div>
             )}

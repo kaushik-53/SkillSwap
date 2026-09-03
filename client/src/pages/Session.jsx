@@ -194,9 +194,11 @@ const Session = () => {
     const isCompleted = request.status === 'Completed';
     const canReview = isCompleted && !reviewSubmitted;
 
-    // Block completion if payment hasn't been settled yet
+    // Block completion if payment hasn't been settled yet.
+    // Treat undefined/null exchangeType as 'SkillSwap' (free) for backward-compat with old requests.
+    const effectiveExchangeType = request.exchangeType || 'SkillSwap';
     const paymentBlocking =
-        request.exchangeType !== 'SkillSwap' &&
+        effectiveExchangeType !== 'SkillSwap' &&
         request.paymentStatus !== 'Settled' &&
         request.paymentStatus !== 'NotRequired';
 
@@ -272,7 +274,7 @@ const Session = () => {
                 </div>
             </motion.div>
 
-            {/* ── Agreed Terms Banner — shown for all non-free sessions ── */}
+            {/* ── Agreed Terms Banner — shown for paid/credit sessions only ── */}
             {request.exchangeType && request.exchangeType !== 'SkillSwap' && (() => {
                 const typeMap = {
                     SkillCredits: { emoji: '🪙', label: 'SkillCredits', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
@@ -553,9 +555,9 @@ const Session = () => {
                 </GlassCard>
             </div>
 
-            {/* Payment Settlement — appears once both parties are in Accepted/Completed state */}
-            {(request.status === 'Accepted' || request.status === 'Completed') &&
-                request.exchangeType !== 'SkillSwap' && (
+            {/* Payment Settlement — only for paid/credit sessions */}
+            {request.exchangeType && request.exchangeType !== 'SkillSwap' &&
+                (request.status === 'Accepted' || request.status === 'Completed') && (
                 <GlassCard style={{ padding: 28, borderRadius: 'var(--r-xl)', marginBottom: 28 }}>
                     <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)', letterSpacing: '0.12em', marginBottom: 4 }}>
                         PAYMENT SETTLEMENT

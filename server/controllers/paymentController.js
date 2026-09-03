@@ -138,44 +138,58 @@ const settleSkillCredits = async (req, res) => {
     try {
         const { requestId } = req.body;
 
-        const request = await Request.findById(requestId)
-            .populate('sender', 'skillCredits name')
-            .populate('receiver', 'skillCredits name');
+        // ── Atomic claim: only ONE call can flip Pending → Settling ────────────
+        // Uses a conditional filter so concurrent duplicates get rejected instantly.
+        const claimed = await Request.findOneAndUpdate(
+            {
+                _id: requestId,
+                exchangeType: 'SkillCredits',
+                paymentStatus: 'Pending',           // only works if still Pending
+            },
+            { $set: { paymentStatus: 'Settling' } }, // intermediate lock state
+            { new: true }
+        ).populate('sender', 'skillCredits name')
+         .populate('receiver', 'skillCredits name');
 
-        if (!request) return res.status(404).json({ message: 'Request not found' });
-
-        if (request.exchangeType !== 'SkillCredits') {
-            return res.status(400).json({ message: 'This request does not use SkillCredits.' });
+        if (!claimed) {
+            // Either already settled/settling, or wrong type
+            const existing = await Request.findById(requestId);
+            if (!existing) return res.status(404).json({ message: 'Request not found' });
+            if (existing.paymentStatus === 'Settled') {
+                return res.status(400).json({ message: 'Credits already settled for this session.' });
+            }
+            return res.status(400).json({ message: 'Settlement already in progress. Please wait.' });
         }
 
-        if (request.paymentStatus === 'Settled') {
-            return res.status(400).json({ message: 'Credits already settled for this session.' });
+        const creditsToTransfer = claimed.agreedAmount || 1;
+        const learner = claimed.sender;
+        const mentor  = claimed.receiver;
+
+        // Re-fetch fresh balance to validate (claimed.sender was populated before $inc)
+        const freshLearner = await User.findById(learner._id).select('skillCredits');
+        if (freshLearner.skillCredits < creditsToTransfer) {
+            // Rollback the intermediate lock
+            await Request.findByIdAndUpdate(requestId, { $set: { paymentStatus: 'Pending' } });
+            return res.status(400).json({
+                message: `Insufficient SkillCredits. You have ${freshLearner.skillCredits}, need ${creditsToTransfer}.`
+            });
         }
 
-        const creditsToTransfer = request.agreedAmount || 1;
-        const learner = request.sender;
-        const mentor = request.receiver;
-
-        if (learner.skillCredits < creditsToTransfer) {
-            return res.status(400).json({ message: `Insufficient SkillCredits. Learner has ${learner.skillCredits}, needs ${creditsToTransfer}.` });
-        }
-
-        // Atomic debit/credit using $inc to avoid race conditions
+        // ── Atomic debit/credit ────────────────────────────────────────────────
         await User.findByIdAndUpdate(learner._id, { $inc: { skillCredits: -creditsToTransfer } });
-        await User.findByIdAndUpdate(mentor._id, { $inc: { skillCredits: creditsToTransfer } });
+        await User.findByIdAndUpdate(mentor._id,  { $inc: { skillCredits:  creditsToTransfer } });
 
-        // Update request payment status
-        request.paymentStatus = 'Settled';
-        await request.save();
+        // ── Finalize request ───────────────────────────────────────────────────
+        await Request.findByIdAndUpdate(requestId, { $set: { paymentStatus: 'Settled' } });
 
-        // Log the transaction
+        // ── Log transaction ────────────────────────────────────────────────────
         await Transaction.create({
             fromUser: learner._id,
-            toUser: mentor._id,
-            request: requestId,
-            type: 'SkillCredit',
-            amount: creditsToTransfer,
-            status: 'Completed',
+            toUser:   mentor._id,
+            request:  requestId,
+            type:     'SkillCredit',
+            amount:   creditsToTransfer,
+            status:   'Completed',
             verifiedAt: new Date(),
             note: `${creditsToTransfer} SkillCredit(s) transferred for session completion`
         });
@@ -185,6 +199,13 @@ const settleSkillCredits = async (req, res) => {
             paymentStatus: 'Settled'
         });
     } catch (error) {
+        // Safety: if anything throws after the Settling lock, revert
+        try {
+            await Request.findOneAndUpdate(
+                { _id: req.body.requestId, paymentStatus: 'Settling' },
+                { $set: { paymentStatus: 'Pending' } }
+            );
+        } catch (_) {}
         console.error('settleSkillCredits error:', error);
         res.status(500).json({ message: 'Server error settling SkillCredits' });
     }

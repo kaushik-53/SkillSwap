@@ -170,14 +170,15 @@ const markComplete = async (req, res) => {
             return res.status(400).json({ message: 'Session must be Accepted before completing' });
         }
 
-        // Server-side payment gate — block completion if payment not settled
+        // Server-side payment gate — treat undefined/null as 'SkillSwap' for backward compat
+        const effectiveExchangeType = request.exchangeType || 'SkillSwap';
         if (
-            request.exchangeType !== 'SkillSwap' &&
+            effectiveExchangeType !== 'SkillSwap' &&
             request.paymentStatus !== 'Settled' &&
             request.paymentStatus !== 'NotRequired'
         ) {
             return res.status(400).json({
-                message: request.exchangeType === 'PaidUPI'
+                message: effectiveExchangeType === 'PaidUPI'
                     ? 'Payment must be confirmed by the mentor before marking this session complete.'
                     : 'SkillCredit transfer must be completed before marking this session done.'
             });

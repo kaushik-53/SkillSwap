@@ -47,7 +47,7 @@ const requestSchema = new mongoose.Schema({
     },
     paymentStatus: {
         type: String,
-        enum: ['NotRequired', 'Pending', 'PaidByStudent', 'Settled'],
+        enum: ['NotRequired', 'Pending', 'Settling', 'PaidByStudent', 'Settled'],
         default: 'NotRequired'
     },
     paymentDetails: {

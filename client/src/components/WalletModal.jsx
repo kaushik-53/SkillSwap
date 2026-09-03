@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, TrendingUp, TrendingDown, AlertCircle, Wallet } from 'lucide-react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
+import API_BASE from '../utils/api';
 
 const STATUS_META = {
     Completed: { bg: '#dcfce7', border: '#bbf7d0', text: '#16a34a', label: 'COMPLETED' },
@@ -24,7 +25,7 @@ const WalletModal = ({ isOpen, onClose, currentUser }) => {
             try {
                 const token = localStorage.getItem('token');
                 const res = await axios.get(
-                    `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/wallet/balance`,
+                    `${API_BASE}/api/wallet/balance`,
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 setData(res.data);
