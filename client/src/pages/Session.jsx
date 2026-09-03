@@ -11,6 +11,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import Button from '../components/ui/Button';
 import GlassCard from '../components/ui/GlassCard';
 import { useToast } from '../components/ui/Toast';
+import PaymentSettlementCard from '../components/PaymentSettlementCard';
 
 /* Ledger entry — mono timestamp + event label */
 const LedgerEntry = ({ timestamp, label, accent }) => (
@@ -447,6 +448,21 @@ const Session = () => {
                     )}
                 </GlassCard>
             </div>
+
+            {/* Payment Settlement — appears once both parties are in Accepted/Completed state */}
+            {(request.status === 'Accepted' || request.status === 'Completed') &&
+                request.exchangeType !== 'SkillSwap' && (
+                <GlassCard style={{ padding: 28, borderRadius: 'var(--r-xl)', marginBottom: 28 }}>
+                    <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)', letterSpacing: '0.12em', marginBottom: 4 }}>
+                        PAYMENT SETTLEMENT
+                    </p>
+                    <PaymentSettlementCard
+                        request={request}
+                        currentUser={user}
+                        onUpdate={() => fetchRequest()}
+                    />
+                </GlassCard>
+            )}
 
             {/* Chat Hub */}
             <GlassCard style={{ padding: 28, borderRadius: 'var(--r-xl)', marginBottom: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>

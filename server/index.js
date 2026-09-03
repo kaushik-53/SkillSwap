@@ -31,6 +31,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const matchRoutes = require('./routes/matchRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 // Connect to Database
 connectDB();
@@ -64,6 +65,8 @@ app.use('/api/requests', messageRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/skills/matches', matchRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/wallet', paymentRoutes);
 
 // Make the uploads folder statically available
 app.use('/uploads', express.static(path.join(__dirname, '/uploads')));

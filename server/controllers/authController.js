@@ -367,6 +367,9 @@ const updateProfile = async (req, res) => {
             if (req.body.about !== undefined) user.bio = req.body.about;
             if (req.body.avatar !== undefined) user.avatar = req.body.avatar;
             if (req.body.skillsWanted !== undefined) user.skillsWanted = req.body.skillsWanted;
+            // Payment / Economy fields
+            if (req.body.upiId !== undefined) user.upiId = req.body.upiId.trim();
+            if (req.body.hourlyRate !== undefined) user.hourlyRate = Number(req.body.hourlyRate) || 0;
             
             const updatedUser = await user.save();
             

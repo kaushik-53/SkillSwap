@@ -309,6 +309,31 @@ const ChatBot = () => {
     const [messages, setMessages] = useState([]);
     const [hasNewMsg, setHasNewMsg] = useState(false);
     const messagesEndRef = useRef(null);
+    const panelRef = useRef(null);
+    const bubbleRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+
+        const handleClickOutside = (event) => {
+            if (
+                panelRef.current &&
+                !panelRef.current.contains(event.target) &&
+                bubbleRef.current &&
+                !bubbleRef.current.contains(event.target)
+            ) {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [open]);
 
     useEffect(() => {
         if (open) {
@@ -387,8 +412,15 @@ const ChatBot = () => {
         <>
             {/* ── Floating bubble ── */}
             <motion.button
+                ref={bubbleRef}
                 id="chatbot-bubble"
-                onClick={handleOpen}
+                onClick={() => {
+                    if (open) {
+                        setOpen(false);
+                    } else {
+                        handleOpen();
+                    }
+                }}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
                 style={{
@@ -408,7 +440,7 @@ const ChatBot = () => {
                     justifyContent: 'center',
                     color: '#fff',
                 }}
-                aria-label="Open SkillBot chat"
+                aria-label="Toggle SkillBot chat"
             >
                 <MessageCircle size={24} />
                 {hasNewMsg && (
@@ -427,6 +459,7 @@ const ChatBot = () => {
             <AnimatePresence>
                 {open && (
                     <motion.div
+                        ref={panelRef}
                         id="chatbot-panel"
                         initial={{ opacity: 0, y: 24, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}

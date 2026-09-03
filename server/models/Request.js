@@ -30,6 +30,31 @@ const requestSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }],
+    // ── Exchange Economy ──────────────────────────────────
+    // How both parties agreed to settle this swap
+    exchangeType: {
+        type: String,
+        enum: ['SkillSwap', 'SkillCredits', 'PaidUPI'],
+        default: 'SkillSwap'
+    },
+    // Amount agreed for this session:
+    //   For SkillSwap: always 0
+    //   For SkillCredits: number of credits (usually 1)
+    //   For PaidUPI: amount in ₹
+    agreedAmount: {
+        type: Number,
+        default: 0
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['NotRequired', 'Pending', 'PaidByStudent', 'Settled'],
+        default: 'NotRequired'
+    },
+    paymentDetails: {
+        upiId: { type: String, default: '' },       // Mentor's UPI VPA
+        utrNumber: { type: String, default: '' },   // Student's UTR reference
+        paidAt: { type: Date }
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -37,3 +62,4 @@ const requestSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('Request', requestSchema);
+

@@ -1,28 +1,44 @@
 const Request = require('../models/Request');
 const Skill = require('../models/Skill');
+const User = require('../models/User');
 
 // @desc    Send a request
 // @route   POST /api/requests
 // @access  Private
 const sendRequest = async (req, res) => {
-    const { skillId, message } = req.body;
+    const { skillId, message, exchangeType, agreedAmount } = req.body;
 
     try {
-        const skill = await Skill.findById(skillId);
+        const skill = await Skill.findById(skillId).populate('owner', 'upiId');
 
         if (!skill) {
             return res.status(404).json({ message: 'Skill not found' });
         }
 
-        if (skill.owner.toString() === req.user.id) {
+        if (skill.owner._id.toString() === req.user.id) {
             return res.status(400).json({ message: 'Cannot request your own skill' });
         }
 
+        const resolvedType = exchangeType || 'SkillSwap';
+        const resolvedAmount = Number(agreedAmount) || 0;
+
+        // Auto-set paymentStatus based on exchange type
+        const paymentStatus = resolvedType === 'SkillSwap' ? 'NotRequired' : 'Pending';
+
+        // Pre-fill mentor's UPI id if it's a paid session
+        const paymentDetails = resolvedType === 'PaidUPI'
+            ? { upiId: skill.owner.upiId || '', utrNumber: '', paidAt: null }
+            : { upiId: '', utrNumber: '', paidAt: null };
+
         const request = await Request.create({
             sender: req.user.id,
-            receiver: skill.owner,
+            receiver: skill.owner._id,
             skill: skillId,
-            message
+            message,
+            exchangeType: resolvedType,
+            agreedAmount: resolvedAmount,
+            paymentStatus,
+            paymentDetails
         });
 
         res.status(201).json(request);

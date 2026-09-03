@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import AuthContext from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getAvatarUrl } from '../utils/imageHelpers';
-import { LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { LogOut, Menu, X, Sun, Moon, Wallet } from 'lucide-react';
+import WalletModal from './WalletModal';
 
 /* Exchange Seal micro-logo */
 const SealLogo = () => (
@@ -25,6 +26,7 @@ const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [walletOpen, setWalletOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -231,6 +233,33 @@ const Navbar = () => {
                                             {user?.name?.split(' ')[0]?.toLowerCase() || 'account'}
                                         </span>
                                     </Link>
+                                    {/* Wallet button */}
+                                    <button
+                                        onClick={() => setWalletOpen(true)}
+                                        title="My Wallet & SkillCredits"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            padding: '8px 12px',
+                                            background: 'rgba(245,158,11,0.12)',
+                                            border: '1px solid rgba(245,158,11,0.25)',
+                                            borderRadius: 10,
+                                            color: '#f59e0b',
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.22)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.12)'; }}
+                                        aria-label="Open wallet"
+                                    >
+                                        <Wallet size={14} />
+                                        <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11 }}>
+                                            {user?.skillCredits ?? 5} 🪙
+                                        </span>
+                                    </button>
                                     <button
                                         onClick={handleLogout}
                                         style={{
@@ -422,6 +451,12 @@ const Navbar = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Wallet modal — globally accessible from navbar */}
+            <WalletModal
+                isOpen={walletOpen}
+                onClose={() => setWalletOpen(false)}
+                currentUser={user}
+            />
         </nav>
     );
 };

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, UploadCloud, Plus, Trash2, Loader2, Sparkles, User, MapPin, AlignLeft, Target } from 'lucide-react';
+import { X, Save, UploadCloud, Plus, Trash2, Loader2, Sparkles, User, MapPin, AlignLeft, Target, CreditCard, IndianRupee } from 'lucide-react';
 import axios from 'axios';
 
 const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
@@ -8,7 +8,9 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
         location: '',
         about: '',
         avatar: '',
-        skillsWanted: []
+        skillsWanted: [],
+        upiId: '',
+        hourlyRate: 0
     });
 
     const [newWanted, setNewWanted] = useState({ title: '', description: '' });
@@ -21,7 +23,9 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
                 location: user.location || '',
                 about: user.about || user.bio || '',
                 avatar: user.avatar || '',
-                skillsWanted: user.skillsWanted || []
+                skillsWanted: user.skillsWanted || [],
+                upiId: user.upiId || '',
+                hourlyRate: user.hourlyRate || 0
             });
         }
     }, [user, isOpen]);
@@ -209,6 +213,43 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
                                         >
                                             Change Photo
                                         </label>
+                                    </div>
+                                </section>
+
+                                {/* Payment & Economy section */}
+                                <section className="space-y-4">
+                                    <div className="flex items-center gap-2 text-gray-400 mb-2">
+                                        <CreditCard size={14} className="text-green-500" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Payment & SkillCredits</span>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-3">
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-black text-gray-500 uppercase ml-1">UPI ID (VPA)</label>
+                                            <input
+                                                type="text"
+                                                name="upiId"
+                                                value={formData.upiId}
+                                                onChange={handleChange}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-100 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all font-medium text-gray-700 bg-white shadow-sm"
+                                                placeholder="e.g. yourname@okhdfcbank"
+                                            />
+                                            <p className="text-[10px] text-gray-400 ml-1">Used for paid sessions. Leave blank for free swaps only.</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="block text-xs font-black text-gray-500 uppercase ml-1">Hourly Rate (₹)</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="number"
+                                                    name="hourlyRate"
+                                                    value={formData.hourlyRate}
+                                                    onChange={handleChange}
+                                                    min={0}
+                                                    className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all font-medium text-gray-700 bg-white shadow-sm"
+                                                    placeholder="0 = free / by arrangement"
+                                                />
+                                                <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </section>
 

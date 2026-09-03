@@ -84,6 +84,20 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    // Payment & Virtual Economy fields
+    upiId: {
+        type: String,
+        trim: true,
+        default: ''
+    },
+    hourlyRate: {
+        type: Number,
+        default: 0  // 0 means "free / by arrangement"
+    },
+    skillCredits: {
+        type: Number,
+        default: 5  // Welcome bonus of 5 credits for every new user
+    },
     createdAt: {
         type: Date,
         default: Date.now
