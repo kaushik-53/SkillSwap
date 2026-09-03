@@ -193,7 +193,14 @@ const Session = () => {
     const confirmCount = request.completedBy?.length || 0;
     const isCompleted = request.status === 'Completed';
     const canReview = isCompleted && !reviewSubmitted;
-    const canMarkComplete = request.status === 'Accepted' && !hasCurrentUserConfirmed;
+
+    // Block completion if payment hasn't been settled yet
+    const paymentBlocking =
+        request.exchangeType !== 'SkillSwap' &&
+        request.paymentStatus !== 'Settled' &&
+        request.paymentStatus !== 'NotRequired';
+
+    const canMarkComplete = request.status === 'Accepted' && !hasCurrentUserConfirmed && !paymentBlocking;
 
     const handleMarkComplete = async () => {
         setIsMarkingComplete(true);
@@ -264,6 +271,81 @@ const Session = () => {
                     </span>
                 </div>
             </motion.div>
+
+            {/* ── Agreed Terms Banner — shown for all non-free sessions ── */}
+            {request.exchangeType && request.exchangeType !== 'SkillSwap' && (() => {
+                const typeMap = {
+                    SkillCredits: { emoji: '🪙', label: 'SkillCredits', color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+                    PaidUPI:      { emoji: '💳', label: 'Paid — UPI / ₹', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                };
+                const payStatusMap = {
+                    NotRequired:   { label: 'Not Required',  dot: '#94a3b8' },
+                    Pending:       { label: 'Awaiting Payment', dot: '#f59e0b' },
+                    PaidByStudent: { label: 'Paid — Awaiting Mentor Confirmation', dot: '#3b82f6' },
+                    Settled:       { label: 'Settled ✓', dot: '#22c55e' },
+                };
+                const t = typeMap[request.exchangeType] || typeMap.SkillCredits;
+                const p = payStatusMap[request.paymentStatus] || payStatusMap.Pending;
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                            background: t.bg,
+                            border: `1px solid ${t.border}`,
+                            borderRadius: 14,
+                            padding: '14px 20px',
+                            marginBottom: 24,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 16,
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        <span style={{ fontSize: 24, flexShrink: 0 }}>{t.emoji}</span>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 800, fontSize: 14, color: t.color, margin: '0 0 2px' }}>
+                                {t.label}
+                                {request.agreedAmount > 0 && (
+                                    <span style={{ marginLeft: 8, fontWeight: 900 }}>
+                                        &middot; {request.exchangeType === 'PaidUPI'
+                                            ? `₹${request.agreedAmount} total`
+                                            : `${request.agreedAmount} Credit${request.agreedAmount !== 1 ? 's' : ''}`}
+                                    </span>
+                                )}
+                            </p>
+                            <p style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: '#64748b', margin: 0, letterSpacing: '0.05em' }}>
+                                AGREED EXCHANGE TERMS
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: '#475569', letterSpacing: '0.05em' }}>
+                                {p.label}
+                            </span>
+                        </div>
+                        {paymentBlocking && (
+                            <div style={{
+                                width: '100%',
+                                background: 'rgba(239,68,68,0.08)',
+                                border: '1px solid rgba(239,68,68,0.2)',
+                                borderRadius: 10, padding: '8px 12px',
+                                fontSize: 12, color: '#dc2626',
+                                display: 'flex', alignItems: 'center', gap: 8,
+                            }}>
+                                <span>🔒</span>
+                                <span>
+                                    {request.exchangeType === 'PaidUPI'
+                                        ? request.paymentStatus === 'PaidByStudent'
+                                            ? 'Payment submitted. Mentor must confirm receipt before marking complete.'
+                                            : 'Payment must be made and confirmed before this session can be marked complete.'
+                                        : 'SkillCredit transfer must be completed before marking this session done.'}
+                                </span>
+                            </div>
+                        )}
+                    </motion.div>
+                );
+            })()}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 28, flexWrap: 'wrap' }}>
                 {/* Partner Card */}
@@ -365,6 +447,28 @@ const Session = () => {
                         </div>
                     </div>
 
+                    {/* Payment-blocked: show locked button with message */}
+                    {paymentBlocking && !isCompleted && !hasCurrentUserConfirmed && (
+                        <div style={{
+                            background: 'rgba(239,68,68,0.06)',
+                            border: '1px dashed rgba(239,68,68,0.3)',
+                            borderRadius: 14, padding: '16px 20px', textAlign: 'center',
+                        }}>
+                            <p style={{ fontSize: 22, marginBottom: 8 }}>🔒</p>
+                            <p style={{ fontWeight: 700, fontSize: 13, color: '#dc2626', marginBottom: 4 }}>
+                                Complete payment first
+                            </p>
+                            <p style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                                {request.exchangeType === 'PaidUPI'
+                                    ? request.paymentStatus === 'PaidByStudent'
+                                        ? 'Payment submitted. Mentor needs to confirm receipt below.'
+                                        : 'Scan the QR code below and submit your UTR number to unlock.'
+                                    : 'Transfer SkillCredits using the payment card below to unlock.'
+                                }
+                            </p>
+                        </div>
+                    )}
+
                     {/* Mark Complete */}
                     {canMarkComplete && (
                         <>
@@ -412,7 +516,7 @@ const Session = () => {
                     )}
 
                     {/* Waiting for partner */}
-                    {!canMarkComplete && !isCompleted && hasCurrentUserConfirmed && (
+                    {!canMarkComplete && !isCompleted && !paymentBlocking && hasCurrentUserConfirmed && (
                         <div style={{
                             padding: '16px',
                             background: 'rgba(94,234,212,0.08)',

@@ -190,9 +190,60 @@ const settleSkillCredits = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/payments/reject-utr
+ * Mentor rejects a UTR that doesn't match their received payment.
+ * Resets paymentStatus back to Pending so learner can resubmit.
+ * Body: { requestId, reason }   (reason is optional)
+ */
+const rejectUTR = async (req, res) => {
+    try {
+        const { requestId, reason } = req.body;
+
+        const request = await Request.findById(requestId);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+
+        // Only the mentor (receiver) can reject
+        if (request.receiver.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Only the mentor can reject a UTR.' });
+        }
+
+        if (request.paymentStatus !== 'PaidByStudent') {
+            return res.status(400).json({ message: 'No pending UTR to reject.' });
+        }
+
+        const rejectedUtr = request.paymentDetails.utrNumber;
+
+        // Reset payment state so learner can resubmit
+        request.paymentStatus = 'Pending';
+        request.paymentDetails.utrNumber = '';
+        request.paymentDetails.paidAt = null;
+        request.paymentDetails.rejectionNote = reason?.trim() || 'UTR not matched. Please pay again.';
+        await request.save();
+
+        // Log the rejection as a Disputed transaction
+        await Transaction.findOneAndUpdate(
+            { request: requestId, type: 'UPI_Payment', status: 'Pending' },
+            {
+                status: 'Disputed',
+                note: `UTR ${rejectedUtr} rejected by mentor. Reason: ${reason || 'UTR not matched'}`
+            }
+        );
+
+        res.json({
+            message: 'UTR rejected. Learner will be prompted to resubmit.',
+            paymentStatus: 'Pending'
+        });
+    } catch (error) {
+        console.error('rejectUTR error:', error);
+        res.status(500).json({ message: 'Server error rejecting UTR' });
+    }
+};
+
 module.exports = {
     getWalletBalance,
     submitUTR,
     confirmReceipt,
+    rejectUTR,
     settleSkillCredits
 };

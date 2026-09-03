@@ -28,6 +28,8 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
     const [utrInput, setUtrInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showRejectForm, setShowRejectForm] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
 
     const isCompleted = request?.status === 'Completed';
     const exchangeType = request?.exchangeType;
@@ -84,6 +86,25 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
             onUpdate?.(res.data);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to confirm receipt.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ── UPI: Mentor rejects wrong UTR ─────────────────────────────────────────
+    const handleRejectUtr = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const res = await axios.post(`${API}/api/payments/reject-utr`, {
+                requestId: request._id,
+                reason: rejectReason.trim() || 'UTR not matched. Please make the payment and resubmit.'
+            }, config);
+            setShowRejectForm(false);
+            setRejectReason('');
+            onUpdate?.(res.data);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to reject UTR.');
         } finally {
             setLoading(false);
         }
@@ -252,16 +273,54 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
                         </div>
                     )}
 
-                    {/* Student waiting state */}
-                    {isRequester && paymentStatus === 'PaidByStudent' && (
-                        <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-low)' }}>
-                            <Clock size={28} style={{ margin: '0 auto 8px', color: '#f59e0b' }} />
-                            <p style={{ fontSize: 13 }}>UTR submitted. Waiting for mentor to confirm receipt.</p>
-                            <p style={{ fontSize: 11, marginTop: 4 }}>UTR: <strong style={{ color: 'var(--text-hi)' }}>{request.paymentDetails?.utrNumber}</strong></p>
+                    {/* Student waiting state — or rejection notice */}
+                    {isRequester && paymentStatus === 'Pending' && request.paymentDetails?.rejectionNote && (
+                        <div>
+                            {/* Rejection alert */}
+                            <div style={{
+                                background: 'rgba(239,68,68,0.08)',
+                                border: '1px solid rgba(239,68,68,0.25)',
+                                borderRadius: 12, padding: '12px 14px', marginBottom: 16,
+                            }}>
+                                <p style={{ fontSize: 13, color: '#dc2626', fontWeight: 700, marginBottom: 4 }}>
+                                    ⚠️ Your previous UTR was rejected
+                                </p>
+                                <p style={{ fontSize: 12, color: '#64748b' }}>
+                                    Mentor said: <em>"{request.paymentDetails.rejectionNote}"</em>
+                                </p>
+                                <p style={{ fontSize: 12, color: '#dc2626', marginTop: 6, fontWeight: 600 }}>
+                                    Please make the payment again and submit the correct UTR.
+                                </p>
+                            </div>
+                            {/* Re-show QR and UTR input */}
+                            {qrUrl && (
+                                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                                    <img src={qrUrl} alt="UPI QR Code" style={{ width: 160, height: 160, borderRadius: 12, border: '2px solid var(--glass-border)', display: 'inline-block' }} />
+                                </div>
+                            )}
+                            {upiIntent && (
+                                <a href={upiIntent} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', borderRadius: 10, background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', fontWeight: 700, fontSize: 13, textDecoration: 'none', marginBottom: 12 }}>
+                                    Open UPI App to Pay Again
+                                </a>
+                            )}
+                            <input
+                                type="text"
+                                value={utrInput}
+                                onChange={(e) => setUtrInput(e.target.value)}
+                                placeholder="New UTR / Transaction Reference"
+                                style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-hi)', fontSize: 14, marginBottom: 10, boxSizing: 'border-box' }}
+                            />
+                            <button
+                                onClick={handleSubmitUtr}
+                                disabled={loading || !utrInput.trim()}
+                                style={{ width: '100%', padding: '11px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading || !utrInput.trim() ? 0.6 : 1 }}
+                            >
+                                {loading ? 'Submitting...' : '✅ Resubmit Correct UTR'}
+                            </button>
                         </div>
                     )}
 
-                    {/* Step 2 — Mentor confirms */}
+                    {/* Step 2 — Mentor confirms or rejects */}
                     {isMentor && paymentStatus === 'PaidByStudent' && (
                         <div>
                             <div style={{ background: 'rgba(34,197,94,0.08)', borderRadius: 12, padding: '12px 14px', marginBottom: 14, border: '1px solid rgba(34,197,94,0.2)' }}>
@@ -272,27 +331,88 @@ const PaymentSettlementCard = ({ request, currentUser, onUpdate }) => {
                                     Amount: <strong>₹{agreedAmount}</strong> · UTR: <strong>{request.paymentDetails?.utrNumber}</strong>
                                 </p>
                             </div>
-                            <p style={{ fontSize: 12, color: 'var(--text-low)', marginBottom: 10 }}>
-                                Please check your bank / UPI app to verify you've received ₹{agreedAmount} and then confirm below.
+                            <p style={{ fontSize: 12, color: 'var(--text-low)', marginBottom: 12 }}>
+                                Check your bank / UPI app to verify you received ₹{agreedAmount}, then confirm or reject.
                             </p>
-                            <button
-                                onClick={handleConfirmReceipt}
-                                disabled={loading}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: 12,
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    fontSize: 14,
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    opacity: loading ? 0.6 : 1,
-                                }}
-                            >
-                                {loading ? 'Confirming...' : '✅ Confirm Payment Received'}
-                            </button>
+                            <div style={{ display: 'flex', gap: 8, marginBottom: showRejectForm ? 12 : 0 }}>
+                                <button
+                                    onClick={handleConfirmReceipt}
+                                    disabled={loading}
+                                    style={{
+                                        flex: 2, padding: '11px',
+                                        borderRadius: 10, border: 'none',
+                                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                        color: '#fff', fontWeight: 700, fontSize: 13,
+                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        opacity: loading ? 0.6 : 1,
+                                    }}
+                                >
+                                    ✅ Confirm — Money Received
+                                </button>
+                                <button
+                                    onClick={() => setShowRejectForm(prev => !prev)}
+                                    disabled={loading}
+                                    style={{
+                                        flex: 1, padding: '11px',
+                                        borderRadius: 10,
+                                        border: '1px solid rgba(239,68,68,0.35)',
+                                        background: 'rgba(239,68,68,0.07)',
+                                        color: '#ef4444', fontWeight: 700, fontSize: 13,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    ❌ Wrong UTR
+                                </button>
+                            </div>
+
+                            {/* Expandable reject form */}
+                            <AnimatePresence>
+                                {showRejectForm && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        style={{ overflow: 'hidden' }}
+                                    >
+                                        <div style={{
+                                            background: 'rgba(239,68,68,0.06)',
+                                            border: '1px dashed rgba(239,68,68,0.3)',
+                                            borderRadius: 10, padding: '12px 14px',
+                                        }}>
+                                            <p style={{ fontSize: 12, color: '#dc2626', fontWeight: 600, marginBottom: 8 }}>
+                                                Rejection reason (shown to learner)
+                                            </p>
+                                            <input
+                                                type="text"
+                                                value={rejectReason}
+                                                onChange={(e) => setRejectReason(e.target.value)}
+                                                placeholder="e.g. UTR not found in my account, amount incorrect..."
+                                                style={{
+                                                    width: '100%', padding: '9px 12px',
+                                                    borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)',
+                                                    background: '#fff', fontSize: 13,
+                                                    color: '#0f172a', marginBottom: 10,
+                                                    boxSizing: 'border-box',
+                                                }}
+                                            />
+                                            <button
+                                                onClick={handleRejectUtr}
+                                                disabled={loading}
+                                                style={{
+                                                    width: '100%', padding: '10px',
+                                                    borderRadius: 8, border: 'none',
+                                                    background: '#ef4444', color: '#fff',
+                                                    fontWeight: 700, fontSize: 13,
+                                                    cursor: loading ? 'not-allowed' : 'pointer',
+                                                    opacity: loading ? 0.6 : 1,
+                                                }}
+                                            >
+                                                {loading ? 'Rejecting...' : '❌ Reject & Ask Learner to Resubmit'}
+                                            </button>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     )}
 

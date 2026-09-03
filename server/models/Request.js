@@ -53,7 +53,8 @@ const requestSchema = new mongoose.Schema({
     paymentDetails: {
         upiId: { type: String, default: '' },       // Mentor's UPI VPA
         utrNumber: { type: String, default: '' },   // Student's UTR reference
-        paidAt: { type: Date }
+        paidAt: { type: Date },
+        rejectionNote: { type: String, default: '' } // Reason if mentor rejected UTR
     },
     createdAt: {
         type: Date,

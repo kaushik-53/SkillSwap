@@ -236,7 +236,7 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
                                             <p className="text-[10px] text-gray-400 ml-1">Used for paid sessions. Leave blank for free swaps only.</p>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="block text-xs font-black text-gray-500 uppercase ml-1">Hourly Rate (₹)</label>
+                                            <label className="block text-xs font-black text-gray-500 uppercase ml-1">Base Rate (₹)</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
@@ -245,10 +245,11 @@ const EditProfileModal = ({ isOpen, onClose, user, onSave }) => {
                                                     onChange={handleChange}
                                                     min={0}
                                                     className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-100 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all font-medium text-gray-700 bg-white shadow-sm"
-                                                    placeholder="0 = free / by arrangement"
+                                                    placeholder="0 = free / open to negotiation"
                                                 />
                                                 <IndianRupee size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                             </div>
+                                            <p className="text-[10px] text-gray-400 ml-1">Reference rate shown on your profile. The actual total is agreed per request.</p>
                                         </div>
                                     </div>
                                 </section>

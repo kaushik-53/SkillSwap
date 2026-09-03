@@ -17,7 +17,7 @@ const getSkills = async (req, res) => {
             ];
         }
 
-        const skills = await Skill.find(query).populate('owner', 'name avatar rating verificationStatus');
+        const skills = await Skill.find(query).populate('owner', 'name avatar rating verificationStatus upiId hourlyRate location');
         res.status(200).json(skills);
     } catch (error) {
         res.status(500).json({ message: error.message });
