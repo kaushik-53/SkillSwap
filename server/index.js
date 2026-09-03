@@ -8,14 +8,47 @@ const socketio = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+// Helper to check if an origin is allowed
+const isAllowedOrigin = (origin) => {
+    if (!origin) return true; // Allow non-browser requests (Postman, server-to-server)
+    
+    // Explicit environment origins (support comma-separated string)
+    const envOrigins = (process.env.CLIENT_URL || '')
+        .split(',')
+        .map(url => url.trim().replace(/\/$/, ''))
+        .filter(Boolean);
+
+    const defaultOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5175',
+        'https://skillswap.living',
+        'https://www.skillswap.living'
+    ];
+
+    const allExplicit = [...envOrigins, ...defaultOrigins];
+    if (allExplicit.includes(origin)) return true;
+
+    // Allow any .skillswap.living or .vercel.app domain
+    try {
+        const url = new URL(origin);
+        if (url.hostname.endsWith('skillswap.living') || url.hostname.endsWith('.vercel.app')) {
+            return true;
+        }
+    } catch (_) {}
+
+    return false;
+};
+
 const io = socketio(server, {
     cors: {
-        origin: [
-            process.env.CLIENT_URL,
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'http://localhost:5175',
-        ].filter(Boolean),
+        origin: (origin, callback) => {
+            if (isAllowedOrigin(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`CORS: ${origin} is not allowed`));
+            }
+        },
         methods: ['GET', 'POST'],
         credentials: true
     }
@@ -40,15 +73,7 @@ connectDB();
 app.use(express.json());
 app.use(cors({
     origin: (origin, callback) => {
-        const allowed = [
-            process.env.CLIENT_URL,         // e.g. https://skillswap.vercel.app
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'http://localhost:5175',
-        ].filter(Boolean);
-
-        // Allow requests with no origin (e.g. mobile apps, Postman, server-to-server)
-        if (!origin || allowed.includes(origin)) {
+        if (isAllowedOrigin(origin)) {
             callback(null, true);
         } else {
             callback(new Error(`CORS: ${origin} is not allowed`));

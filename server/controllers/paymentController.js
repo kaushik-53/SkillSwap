@@ -22,10 +22,10 @@ const getWalletBalance = async (req, res) => {
             .populate('request', 'skill exchangeType');
 
         res.json({
-            balance: user.skillCredits,
-            upiId: user.upiId,
-            hourlyRate: user.hourlyRate,
-            transactions
+            balance: typeof user.skillCredits === 'number' ? user.skillCredits : 5,
+            upiId: user.upiId || '',
+            hourlyRate: user.hourlyRate || 0,
+            transactions: transactions || []
         });
     } catch (error) {
         console.error('getWalletBalance error:', error);

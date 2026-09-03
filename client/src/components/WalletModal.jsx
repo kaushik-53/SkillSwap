@@ -29,8 +29,9 @@ const WalletModal = ({ isOpen, onClose, currentUser }) => {
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 setData(res.data);
-            } catch {
-                setError('Failed to load wallet data.');
+            } catch (err) {
+                console.error('Wallet fetch error:', err);
+                setError(err.response?.data?.message || err.message || 'Failed to load wallet data.');
             } finally {
                 setLoading(false);
             }
