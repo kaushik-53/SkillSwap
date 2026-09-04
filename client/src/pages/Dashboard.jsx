@@ -70,7 +70,7 @@ const Dashboard = () => {
 
                 let rating = '0.0';
                 try {
-                    const reviewRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reviews/${user?._id}`);
+                    const reviewRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reviews/user/${user?._id}`);
                     if (reviewRes.data.length > 0) {
                         const sum = reviewRes.data.reduce((acc, r) => acc + r.rating, 0);
                         rating = (sum / reviewRes.data.length).toFixed(1);
