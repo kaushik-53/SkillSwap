@@ -4,7 +4,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import AuthContext from '../context/AuthContext';
 import { getAvatarUrl } from '../utils/imageHelpers';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
 import StatusBadge from '../components/ui/StatusBadge';
 import ExchangeSeal from '../components/ui/ExchangeSeal';
 import Skeleton from '../components/ui/Skeleton';
@@ -75,76 +75,151 @@ const MySwaps = () => {
                     padding: '20px 24px',
                     borderRadius: 'var(--r-lg)',
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 20,
-                    flexWrap: 'wrap',
+                    flexDirection: 'column',
+                    gap: 14,
                     transition: 'border-color 0.2s ease',
                     borderColor: isCompleted ? 'rgba(255,255,255,0.18)' : 'var(--glass-border)',
                 }}
             >
-                {/* Partner avatar */}
-                <img
-                    src={getAvatarUrl(partner?.avatar, partner?.name)}
-                    alt={partner?.name}
-                    style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--glass-border)' }}
-                />
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 15, color: 'var(--text-hi)' }}>
-                            {swap.skill?.title || 'Unknown Skill'}
-                        </h3>
-                        <StatusBadge status={swap.status?.toLowerCase()} />
-                        {isCompleted && <ExchangeSeal triggered={false} size={22} />}
+                {/* Header Row: Partner, Skill Title, Badges, Status & CTA */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <img
+                            src={getAvatarUrl(partner?.avatar, partner?.name)}
+                            alt={partner?.name}
+                            style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--glass-border)' }}
+                        />
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                                <h3 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 16, color: 'var(--text-hi)', margin: 0 }}>
+                                    {swap.skill?.title || 'Unknown Skill'}
+                                </h3>
+                                <StatusBadge status={swap.status?.toLowerCase()} />
+                                {isCompleted && <ExchangeSeal triggered={false} size={22} />}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: 12, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
+                                    {isReceiver ? '← received from ' : '→ sent to '}
+                                    <span style={{ color: 'var(--text-mid)', fontWeight: 700 }}>{partner?.name || 'Deleted user'}</span>
+                                </span>
+                                {swap.skill?.category && (
+                                    <span style={{
+                                        fontSize: 9,
+                                        fontWeight: 700,
+                                        padding: '2px 7px',
+                                        borderRadius: 6,
+                                        background: 'var(--glass)',
+                                        border: '1px solid var(--glass-border)',
+                                        color: 'var(--text-low)',
+                                        fontFamily: 'Space Mono, monospace',
+                                        letterSpacing: '0.08em',
+                                    }}>
+                                        {swap.skill.category.toUpperCase()}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
-                            {isReceiver ? '→ from ' : '← to '}
-                            <span style={{ color: 'var(--text-mid)', fontWeight: 700 }}>{partner?.name || 'Deleted user'}</span>
-                        </span>
-                        {swap.skill?.category && (
+
+                    {/* Right side: Amount pill & CTA */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        {/* Exchange Term Badge */}
+                        {swap.exchangeType === 'PaidUPI' && (
                             <span style={{
-                                fontSize: 9,
+                                fontSize: 11,
                                 fontWeight: 700,
-                                padding: '3px 8px',
-                                borderRadius: 6,
-                                background: 'var(--glass)',
-                                border: '1px solid var(--glass-border)',
-                                color: 'var(--text-low)',
+                                padding: '4px 10px',
+                                borderRadius: 100,
+                                background: 'rgba(34, 197, 94, 0.15)',
+                                color: '#22c55e',
+                                border: '1px solid rgba(34, 197, 94, 0.35)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
                                 fontFamily: 'Space Mono, monospace',
-                                letterSpacing: '0.08em',
                             }}>
-                                {swap.skill.category.toUpperCase()}
+                                💳 ₹{swap.agreedAmount} UPI
                             </span>
                         )}
-                        <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)' }}>
+                        {swap.exchangeType === 'SkillCredits' && (
+                            <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 100,
+                                background: 'rgba(234, 179, 8, 0.15)',
+                                color: '#eab308',
+                                border: '1px solid rgba(234, 179, 8, 0.35)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontFamily: 'Space Mono, monospace',
+                            }}>
+                                🪙 {swap.agreedAmount || 1} Credit
+                            </span>
+                        )}
+                        {(!swap.exchangeType || swap.exchangeType === 'SkillSwap') && (
+                            <span style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '4px 10px',
+                                borderRadius: 100,
+                                background: 'rgba(59, 130, 246, 0.15)',
+                                color: '#60a5fa',
+                                border: '1px solid rgba(59, 130, 246, 0.35)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                fontFamily: 'Space Mono, monospace',
+                            }}>
+                                🔄 Direct Swap
+                            </span>
+                        )}
+
+                        {/* CTA button */}
+                        {(swap.status === 'Accepted' || swap.status === 'Completed') ? (
+                            <Link
+                                to={`/requests/${swap._id}`}
+                                className={swap.status === 'Completed' ? 'btn-ghost' : 'btn-ember'}
+                                style={{ padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                            >
+                                {swap.status === 'Completed' ? 'View' : 'Join Session'}
+                                <ArrowRight size={13} />
+                            </Link>
+                        ) : swap.status === 'Pending' && isReceiver ? (
+                            <Link to="/dashboard" className="btn-current" style={{ padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                Manage <ArrowRight size={13} />
+                            </Link>
+                        ) : (
+                            <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--text-low)', letterSpacing: '0.08em' }}>
+                                {swap.status === 'Rejected' ? 'CLOSED' : 'PENDING'}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Proposal Message Note */}
+                {swap.message && (
+                    <div style={{
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: 10,
+                        padding: '10px 14px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                    }}>
+                        <MessageSquare size={13} style={{ color: 'var(--text-low)', flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: 12, color: 'var(--text-mid)', margin: 0, lineHeight: 1.5, fontStyle: 'italic' }}>
+                                "{swap.message}"
+                            </p>
+                        </div>
+                        <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 10, color: 'var(--text-low)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                             {new Date(swap.updatedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                     </div>
-                </div>
-
-                {/* CTA */}
-                <div style={{ flexShrink: 0 }}>
-                    {(swap.status === 'Accepted' || swap.status === 'Completed') ? (
-                        <Link
-                            to={`/requests/${swap._id}`}
-                            className={swap.status === 'Completed' ? 'btn-ghost' : 'btn-ember'}
-                            style={{ padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                        >
-                            {swap.status === 'Completed' ? 'View' : 'Join Session'}
-                            <ArrowRight size={14} />
-                        </Link>
-                    ) : swap.status === 'Pending' && isReceiver ? (
-                        <Link to="/dashboard" className="btn-current" style={{ padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            Manage <ArrowRight size={14} />
-                        </Link>
-                    ) : (
-                        <span style={{ fontFamily: 'Space Mono, monospace', fontSize: 11, color: 'var(--text-low)', letterSpacing: '0.08em' }}>
-                            {swap.status === 'Rejected' ? 'CLOSED' : 'WAITING'}
-                        </span>
-                    )}
-                </div>
+                )}
             </motion.div>
         );
     };

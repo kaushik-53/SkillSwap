@@ -4,7 +4,7 @@ import AuthContext from '../context/AuthContext';
 import { getAvatarUrl } from '../utils/imageHelpers';
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
-import { ArrowRight, Bell, MapPin, Plus, Star } from 'lucide-react';
+import { ArrowRight, Bell, MapPin, Plus, Star, MessageSquare } from 'lucide-react';
 import StatusBadge from '../components/ui/StatusBadge';
 import GlassCard from '../components/ui/GlassCard';
 import Skeleton from '../components/ui/Skeleton';
@@ -82,13 +82,18 @@ const Dashboard = () => {
                 const skillsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/skills`);
                 setRecommendedSkills(skillsRes.data.filter(s => s.owner?._id !== user?._id).slice(0, 3));
 
-                const pending = received.filter(r => r.status === 'Pending').slice(0, 3);
+                const pending = received.filter(r => r.status === 'Pending').slice(0, 5);
                 setNotifications(pending.map(p => ({
                     id: p._id,
                     senderName: p.sender?.name || 'User',
                     senderAvatar: p.sender?.avatar,
                     skillTitle: p.skill?.title || 'Skill',
-                    message: p.message?.substring(0, 50),
+                    skillCategory: p.skill?.category,
+                    message: p.message,
+                    exchangeType: p.exchangeType || 'SkillSwap',
+                    agreedAmount: p.agreedAmount || 0,
+                    paymentStatus: p.paymentStatus,
+                    createdAt: p.createdAt,
                 })));
             } catch (err) {
                 console.error('Dashboard error:', err);
@@ -223,61 +228,192 @@ const Dashboard = () => {
                                 </div>
                             )}
                         </div>
-                    </motion.section>
-
-                    {/* Pending Requests / Notifications */}
+                    </motion.section>                    {/* Pending Requests / Notifications */}
                     <motion.section {...fadeUp(0.1)}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                            <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 20, color: 'var(--text-hi)' }}>
-                                Swap Requests
-                            </h2>
-                            {notifications.length > 0 && (
-                                <span style={{
-                                    fontSize: 10,
-                                    fontFamily: 'Space Mono, monospace',
-                                    padding: '4px 10px',
-                                    borderRadius: 100,
-                                    background: 'rgba(248,113,113,0.15)',
-                                    color: '#F87171',
-                                    border: '1px solid rgba(248,113,113,0.25)',
-                                }}>
-                                    {notifications.length} NEW
-                                </span>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <h2 style={{ fontFamily: 'Cabinet Grotesk, sans-serif', fontWeight: 700, fontSize: 20, color: 'var(--text-hi)' }}>
+                                    Swap Requests
+                                </h2>
+                                {notifications.length > 0 && (
+                                    <span style={{
+                                        fontSize: 10,
+                                        fontFamily: 'Space Mono, monospace',
+                                        padding: '4px 10px',
+                                        borderRadius: 100,
+                                        background: 'rgba(248,113,113,0.15)',
+                                        color: '#F87171',
+                                        border: '1px solid rgba(248,113,113,0.25)',
+                                    }}>
+                                        {notifications.length} NEW
+                                    </span>
+                                )}
+                            </div>
+                            <Link to="/my-swaps" style={{ fontSize: 13, color: 'var(--ember)', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                View all <ArrowRight size={14} />
+                            </Link>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             {loading ? (
-                                Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} variant="card" height={96} />)
+                                Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} variant="card" height={120} />)
                             ) : notifications.length > 0 ? notifications.map(notif => (
                                 <div
                                     key={notif.id}
                                     className="glass"
-                                    style={{ padding: 20, borderRadius: 'var(--r-md)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}
+                                    style={{
+                                        padding: '20px 24px',
+                                        borderRadius: 'var(--r-lg)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 14,
+                                        border: '1px solid var(--glass-border)',
+                                        background: 'var(--glass)',
+                                        transition: 'border-color 0.2s ease',
+                                    }}
                                 >
-                                    <img src={getAvatarUrl(notif.senderAvatar, notif.senderName)} alt={notif.senderName}
-                                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-hi)', marginBottom: 2 }}>
-                                            {notif.senderName} wants to swap
-                                        </p>
-                                        <p style={{ fontSize: 12, color: 'var(--ember)', fontWeight: 600 }}>{notif.skillTitle}</p>
+                                    {/* Top row: User Info & Exchange Badge */}
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                                            <img
+                                                src={getAvatarUrl(notif.senderAvatar, notif.senderName)}
+                                                alt={notif.senderName}
+                                                style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--glass-border)', flexShrink: 0 }}
+                                            />
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-hi)' }}>
+                                                        {notif.senderName}
+                                                    </span>
+                                                    <span style={{ fontSize: 11, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
+                                                        requested a swap for
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: 14, color: 'var(--ember)', fontWeight: 700 }}>
+                                                        {notif.skillTitle}
+                                                    </span>
+                                                    {notif.skillCategory && (
+                                                        <span style={{
+                                                            fontSize: 9,
+                                                            fontWeight: 700,
+                                                            padding: '2px 7px',
+                                                            borderRadius: 6,
+                                                            background: 'rgba(255,255,255,0.06)',
+                                                            border: '1px solid var(--glass-border)',
+                                                            color: 'var(--text-low)',
+                                                            fontFamily: 'Space Mono, monospace',
+                                                        }}>
+                                                            {notif.skillCategory.toUpperCase()}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Agreed Amount / Exchange Type Pill */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {notif.exchangeType === 'PaidUPI' && (
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    padding: '5px 12px',
+                                                    borderRadius: 100,
+                                                    background: 'rgba(34, 197, 94, 0.15)',
+                                                    color: '#22c55e',
+                                                    border: '1px solid rgba(34, 197, 94, 0.35)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 5,
+                                                    fontFamily: 'Space Mono, monospace',
+                                                }}>
+                                                    💳 Paid · ₹{notif.agreedAmount} UPI
+                                                </span>
+                                            )}
+                                            {notif.exchangeType === 'SkillCredits' && (
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    padding: '5px 12px',
+                                                    borderRadius: 100,
+                                                    background: 'rgba(234, 179, 8, 0.15)',
+                                                    color: '#eab308',
+                                                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 5,
+                                                    fontFamily: 'Space Mono, monospace',
+                                                }}>
+                                                    🪙 {notif.agreedAmount || 1} SkillCredit
+                                                </span>
+                                            )}
+                                            {(!notif.exchangeType || notif.exchangeType === 'SkillSwap') && (
+                                                <span style={{
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    padding: '5px 12px',
+                                                    borderRadius: 100,
+                                                    background: 'rgba(59, 130, 246, 0.15)',
+                                                    color: '#60a5fa',
+                                                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: 5,
+                                                    fontFamily: 'Space Mono, monospace',
+                                                }}>
+                                                    🔄 Direct Swap (Free)
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                                        <button
-                                            onClick={() => handleRequestStatus(notif.id, 'Rejected')}
-                                            className="btn-ghost"
-                                            style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}
-                                        >
-                                            Decline
-                                        </button>
-                                        <button
-                                            onClick={() => handleRequestStatus(notif.id, 'Accepted')}
-                                            className="btn-current"
-                                            style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}
-                                        >
-                                            Accept
-                                        </button>
+
+                                    {/* User message quote box */}
+                                    {notif.message && (
+                                        <div style={{
+                                            background: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid var(--glass-border)',
+                                            borderRadius: 12,
+                                            padding: '12px 16px',
+                                        }}>
+                                            <p style={{
+                                                fontSize: 10,
+                                                fontFamily: 'Space Mono, monospace',
+                                                color: 'var(--text-low)',
+                                                letterSpacing: '0.08em',
+                                                marginBottom: 4,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 5,
+                                            }}>
+                                                <MessageSquare size={11} /> PROPOSAL MESSAGE:
+                                            </p>
+                                            <p style={{ fontSize: 13, color: 'var(--text-mid)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+                                                "{notif.message}"
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Footer row: Date / Time + Action buttons */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingTop: 2 }}>
+                                        <span style={{ fontSize: 11, color: 'var(--text-low)', fontFamily: 'Space Mono, monospace' }}>
+                                            Received {new Date(notif.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button
+                                                onClick={() => handleRequestStatus(notif.id, 'Rejected')}
+                                                className="btn-ghost"
+                                                style={{ padding: '8px 18px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                                            >
+                                                Decline
+                                            </button>
+                                            <button
+                                                onClick={() => handleRequestStatus(notif.id, 'Accepted')}
+                                                className="btn-current"
+                                                style={{ padding: '8px 20px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                                            >
+                                                Accept Swap
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )) : (
